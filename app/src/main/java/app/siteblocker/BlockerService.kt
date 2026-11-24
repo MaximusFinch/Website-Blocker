@@ -105,14 +105,42 @@ class BlockerService : AccessibilityService() {
         "tab_button", "tabs_button",          // Samsung Internet, others
     )
 
-    /**
-     * Menu entry texts. German Chrome calls it just "Schließen" in the
-     * long-press menu of the tab button, English Chrome "Close tab".
-     */
-    private val closeTabTexts = listOf(
+    /** Built-in menu entry texts (German Chrome calls it just "Schließen"). */
+    private val builtInCloseTexts = setOf(
         "close tab", "close", "close this tab",
         "tab schließen", "tab schliessen", "schließen", "schliessen",
     )
+
+    /** Names of the browsers' own text resources for "Close tab" / "Close". */
+    private val closeResourceNames = listOf(
+        "close_tab", "close", "menu_close_tab", "tab_close", "close_current_tab", "action_close_tab",
+    )
+
+    private val closeTextCache = mutableMapOf<String, Set<String>>()
+
+    /**
+     * "Close tab" texts for this browser. Besides the built-in ones, the texts are
+     * read from the browser app itself, in the language the phone is set to -
+     * so this works in French, Spanish, Turkish ... without translations here.
+     */
+    private fun closeTexts(pkg: String): Set<String> = closeTextCache.getOrPut(pkg) {
+        val texts = builtInCloseTexts.toMutableSet()
+        try {
+            val res = packageManager.getResourcesForApplication(pkg)
+            for (name in closeResourceNames) {
+                val id = res.getIdentifier(name, "string", pkg)
+                if (id != 0) texts += res.getString(id).trim().lowercase()
+            }
+        } catch (_: Exception) {}
+        texts
+    }
+
+    /** Window IDs that existed before the long press: the menu is a new window. */
+    private var windowsBefore: Set<Int> = emptySet()
+
+    private fun rememberWindows() {
+        windowsBefore = windows.map { it.id }.toSet()
+    }
 
     /** What happened during the last attempt (written to logcat for troubleshooting). */
     private val closeLog = StringBuilder()
@@ -158,17 +186,20 @@ class BlockerService : AccessibilityService() {
             return
         }
         log("tab button: " + (tabButton.viewIdResourceName?.substringAfter('/') ?: tabButton.contentDescription))
+        val chromium = tabButton.viewIdResourceName?.endsWith("/tab_switcher_button") == true
+        rememberWindows()
         log("long click: " + tabButton.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK))
 
-        waitForCloseItem(run, 12) { found ->
+        waitForCloseItem(run, pkg, chromium, 20) { found ->
             if (found) { finish(run); return@waitForCloseItem }
             // Second try: a real long press on the button
             val bounds = Rect()
             tabButton.refresh()
             tabButton.getBoundsInScreen(bounds)
             log("gesture")
+            rememberWindows()
             pressAt(bounds, 600) {
-                waitForCloseItem(run, 12) { found2 ->
+                waitForCloseItem(run, pkg, chromium, 20) { found2 ->
                     if (found2) finish(run)
                     else {
                         log("menu not found, seen: " + visibleTexts())
@@ -180,9 +211,11 @@ class BlockerService : AccessibilityService() {
     }
 
     /** Looks for the "Close tab" entry for up to about a second and taps it. */
-    private fun waitForCloseItem(run: Int, tries: Int, onDone: (Boolean) -> Unit) {
+    private fun waitForCloseItem(
+        run: Int, pkg: String, chromium: Boolean, tries: Int, onDone: (Boolean) -> Unit,
+    ) {
         if (!isCurrent(run)) return
-        val item = findCloseItem()
+        val item = findCloseItem(pkg, chromium)
         if (item != null) {
             val ok = clickNodeOrParent(item)
             if (!ok) {
@@ -195,7 +228,7 @@ class BlockerService : AccessibilityService() {
             return
         }
         if (tries <= 0) { onDone(false); return }
-        handler.postDelayed({ waitForCloseItem(run, tries - 1, onDone) }, 80)
+        handler.postDelayed({ waitForCloseItem(run, pkg, chromium, tries - 1, onDone) }, 50)
     }
 
     /** Closing didn't work: close a possibly open menu and leave the page. */
@@ -214,8 +247,8 @@ class BlockerService : AccessibilityService() {
             if (!isCurrent(run)) return@postDelayed
             log("done")
             performGlobalAction(GLOBAL_ACTION_HOME)
-            handler.postDelayed({ if (run == closeRun) hideOverlay() }, 300)
-        }, 250)
+            handler.postDelayed({ if (run == closeRun) hideOverlay() }, 200)
+        }, 100)
     }
 
     /** While closing, the button shows what is happening and can't be tapped. */
@@ -236,12 +269,39 @@ class BlockerService : AccessibilityService() {
         }
     }
 
-    private fun findCloseItem(): AccessibilityNodeInfo? {
-        for (r in browserRoots()) {
-            findNode(r) { n ->
+    /**
+     * Finds "Close tab" in the menu that opened after the long press. Only new
+     * windows of the browser are searched, so a "Close" button on the web page
+     * itself is never tapped by mistake.
+     */
+    private fun findCloseItem(pkg: String, chromium: Boolean): AccessibilityNodeInfo? {
+        val texts = closeTexts(pkg)
+        val menus = (windows.filter { it.id !in windowsBefore }.mapNotNull { it.root } +
+            listOfNotNull(rootInActiveWindow?.takeIf { it.windowId !in windowsBefore }))
+            .filter { it.packageName?.toString() == pkg }
+        for (menu in menus) {
+            findNode(menu) { n ->
                 val t = (n.text ?: n.contentDescription)?.toString()?.trim()?.lowercase()
-                t != null && closeTabTexts.any { t == it }
+                t != null && t in texts
             }?.let { return it }
+        }
+        // Unknown language in a Chrome-based browser: "Close tab" is the first entry
+        if (chromium) {
+            for (menu in menus) {
+                findNode(menu) { n ->
+                    n.isClickable && (!n.text.isNullOrBlank() ||
+                        (n.childCount > 0 && n.getChild(0)?.text?.isNotBlank() == true))
+                }?.let { log("first menu entry"); return it }
+            }
+        }
+        // Last resort (menu window not recognised): search all browser windows by text
+        if (menus.isEmpty()) {
+            for (r in browserRoots()) {
+                findNode(r) { n ->
+                    val t = (n.text ?: n.contentDescription)?.toString()?.trim()?.lowercase()
+                    t != null && t in texts
+                }?.let { return it }
+            }
         }
         return null
     }

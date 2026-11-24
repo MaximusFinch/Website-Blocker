@@ -6,6 +6,15 @@
     <!-- Only used to check that a newly added site exists (DNS lookup) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Lets the app see installed browsers to read their "Close tab" text -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
