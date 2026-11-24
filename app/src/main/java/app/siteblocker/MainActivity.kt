@@ -19,6 +19,10 @@ import android.os.CancellationSignal
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.text.style.RelativeSizeSpan
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
@@ -295,19 +299,30 @@ class MainActivity : Activity() {
         }
         val protectedNow = reason == null
         val statusColor = getColor(if (protectedNow) R.color.success else R.color.danger)
-        // Pause symbol shows that the status can be tapped to pause blocking
+        // Dark glass pill on the orange header: only the dot and the outline carry
+        // the green/red state. The pause bars show that it can be tapped to pause.
         val canPause = BlockConfig.isEnabled(this) && !isLocked()
-        status.text = getString(if (protectedNow) R.string.status_ok else R.string.status_off) +
-            if (canPause) "   ⏸" else ""
-        status.setTextColor(if (protectedNow) 0xFF06281A.toInt() else 0xFFFFFFFF.toInt())
+        val label = getString(if (protectedNow) R.string.status_ok else R.string.status_off)
+        status.text = SpannableStringBuilder(label).apply {
+            setSpan(ForegroundColorSpan(statusColor), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            if (canPause) {
+                val start = length
+                append("     ❚❚")
+                setSpan(ForegroundColorSpan(0xB3FFFFFF.toInt()), start, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                setSpan(RelativeSizeSpan(0.75f), start, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+        }
+        status.setTextColor(0xFFFFFFFF.toInt())
         headerSub.setText(reason ?: R.string.sub_active)
         status.background = GradientDrawable().apply {
             cornerRadius = dp(100).toFloat()
-            setColor(statusColor)
+            setColor(0x59000000)                                           // black, 35 %
+            setStroke(dp(1), (statusColor and 0x00FFFFFF) or 0x99000000.toInt()) // state color, 60 %
         }
         headerIcon.background = GradientDrawable().apply {
             cornerRadius = dp(18).toFloat()
-            setColor((statusColor and 0x00FFFFFF) or 0x59000000) // same color, 35 % opacity
+            setColor(0x40000000)                                           // black, 25 %
+            setStroke(dp(1), 0x33FFFFFF)
         }
         serviceCard.visibility = if (serviceOn) View.GONE else View.VISIBLE
 
