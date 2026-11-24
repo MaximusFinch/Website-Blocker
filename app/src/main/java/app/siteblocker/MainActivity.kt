@@ -49,6 +49,9 @@ class MainActivity : Activity() {
     private var listExpanded = false
     /** True after a successful fingerprint / PIN check, until the app goes to the background. */
     private var listUnlocked = false
+    /** Result of the last existence check per site (green / red dot). */
+    private val existence = mutableMapOf<String, SiteChecker.Exists>()
+    private var checkingSites = false
     private var onAuthResult: (() -> Unit)? = null
     private lateinit var btnAdd: Button
     private lateinit var serviceCard: View
@@ -101,12 +104,13 @@ class MainActivity : Activity() {
         findViewById<View>(R.id.sites_toggle).setOnClickListener {
             when {
                 listExpanded -> { listExpanded = false; refresh() }
-                listUnlocked -> { listExpanded = true; refresh() }
+                listUnlocked -> { listExpanded = true; refresh(); checkExistence() }
                 // Fingerprint, face or screen lock PIN before the list is shown
                 else -> authenticate {
                     listUnlocked = true
                     listExpanded = true
                     refresh()
+                    checkExistence()
                 }
             }
         }
@@ -329,7 +333,7 @@ class MainActivity : Activity() {
         status.background = GradientDrawable().apply {
             cornerRadius = dp(100).toFloat()
             setColor(0x59000000)                                           // black, 35 %
-            setStroke(dp(1), (statusColor and 0x00FFFFFF) or 0xCC000000.toInt()) // state color, 80 %
+            setStroke(dp(1), (statusColor and 0x00FFFFFF) or 0xFF000000.toInt()) // state color
         }
         headerIcon.background = GradientDrawable().apply {
             cornerRadius = dp(18).toFloat()
@@ -348,7 +352,7 @@ class MainActivity : Activity() {
         alphaStatus.background = GradientDrawable().apply {
             cornerRadius = dp(100).toFloat()
             setColor(0x59000000)
-            setStroke(dp(1), (alphaColor and 0x00FFFFFF) or 0xCC000000.toInt())
+            setStroke(dp(1), (alphaColor and 0x00FFFFFF) or 0xFF000000.toInt())
         }
         // Only shown while blocking is paused (never in Alpha mode)
         cardEnabled.visibility = if (!lock && !BlockConfig.isEnabled(this)) View.VISIBLE else View.GONE
@@ -424,11 +428,21 @@ class MainActivity : Activity() {
                     LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
                 ).apply { topMargin = dp(8) }
             }
-            // small colored dot
+            // Dot: green = site exists, red = site doesn't exist (can always be removed),
+            // orange = keyword, grey = not checked yet / no internet
+            val exists = existence[site]
+            val dead = exists == SiteChecker.Exists.NO
             row.addView(View(this).apply {
                 background = GradientDrawable().apply {
                     shape = GradientDrawable.OVAL
-                    setColor(getColor(R.color.accent))
+                    setColor(
+                        when (exists) {
+                            SiteChecker.Exists.YES -> getColor(R.color.success)
+                            SiteChecker.Exists.NO -> getColor(R.color.danger)
+                            SiteChecker.Exists.KEYWORD -> getColor(R.color.accent)
+                            else -> getColor(R.color.text_hint)
+                        }
+                    )
                 }
                 layoutParams = LinearLayout.LayoutParams(dp(8), dp(8)).apply { marginEnd = dp(12) }
             })
@@ -441,12 +455,12 @@ class MainActivity : Activity() {
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             })
             row.addView(Button(this, null, android.R.attr.borderlessButtonStyle).apply {
-                text = if (lock) "🔒" else "✕"
+                text = if (lock && !dead) "🔒" else "✕"
                 textSize = 16f
                 setTextColor(getColor(R.color.text_dim))
                 minWidth = dp(44)
                 minimumWidth = dp(44)
-                alpha = if (lock) 0.5f else 1f
+                alpha = if (lock && !dead) 0.5f else 1f
                 setOnClickListener { removeSite(site) }
             })
             siteList.addView(row)
@@ -520,6 +534,7 @@ class MainActivity : Activity() {
             if (sites.none { it.equals(e, true) }) { sites.add(e); added++ }
         }
         BlockConfig.setSites(this, sites)
+        if (listExpanded) checkExistence()
         toast(
             when (added) {
                 0 -> "Already on the list"
@@ -532,10 +547,51 @@ class MainActivity : Activity() {
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
 
+    /** Checks in the background whether the sites on the list still exist. */
+    private fun checkExistence() {
+        if (checkingSites) return
+        val sites = BlockConfig.getSites(this)
+        if (sites.isEmpty()) return
+        checkingSites = true
+        Thread {
+            val result = SiteChecker.exists(sites)
+            runOnUiThread {
+                checkingSites = false
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                existence.clear()
+                existence.putAll(result)
+                refresh()
+            }
+        }.start()
+    }
+
     private fun removeSite(site: String) {
-        if (isLocked()) { denied(); return }
+        if (isLocked()) {
+            // In Alpha mode only sites that don't exist can be removed; check again first
+            if (existence[site] != SiteChecker.Exists.NO) { denied(); return }
+            Thread {
+                val dead = SiteChecker.exists(listOf(site))[site] == SiteChecker.Exists.NO
+                runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+                    if (!dead) {
+                        existence.remove(site); refresh(); denied()
+                        return@runOnUiThread
+                    }
+                    confirmRemove(site, "\"$site\" doesn't exist, so blocking it has no effect.\n\nRemove it from the block list?")
+                }
+            }.start()
+            return
+        }
+        confirmRemove(
+            site,
+            if (existence[site] == SiteChecker.Exists.NO) "\"$site\" doesn't exist. Remove it from the block list?"
+            else "Remove \"$site\" from the block list?"
+        )
+    }
+
+    private fun confirmRemove(site: String, message: String) {
         AlertDialog.Builder(this)
-            .setMessage("Remove \"$site\" from the block list?")
+            .setMessage(message)
             .setPositiveButton("Remove") { _, _ ->
                 BlockConfig.setSites(this, BlockConfig.getSites(this).filter { it != site })
                 refresh()

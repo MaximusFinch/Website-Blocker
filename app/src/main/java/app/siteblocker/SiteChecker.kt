@@ -61,6 +61,32 @@ object SiteChecker {
         return Report(results, online == false)
     }
 
+    enum class Exists { YES, NO, KEYWORD, UNKNOWN }
+
+    /**
+     * Does each entry on the block list still exist? Keywords (no dot) are not checked.
+     * NO is only returned when the internet clearly works (well-known sites resolve
+     * before and after the lookup), so a bad connection never marks a site as dead.
+     */
+    fun exists(entries: List<String>): Map<String, Exists> {
+        val result = mutableMapOf<String, Exists>()
+        var online: Boolean? = null
+        for (entry in entries) {
+            val host = hostOf(entry)
+            result[entry] = when {
+                host == null -> Exists.KEYWORD
+                resolves(host) -> Exists.YES
+                else -> {
+                    if (online == null) online = isOnline()
+                    if (online == true && isOnline()) Exists.NO else Exists.UNKNOWN
+                }
+            }
+        }
+        return result
+    }
+
+    private fun isOnline() = resolves("google.com") && resolves("cloudflare.com")
+
     // ---------- Suggestions ----------
 
     /** Suggestion for a domain that doesn't exist. */

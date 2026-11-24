@@ -10,4 +10,5 @@ Android app for blocking websites.
 - Block list protected by fingerprint or PIN
 - Schedule with times and days of the week
 - Alpha mode: locks your settings until a chosen date and time
+- Green dot = site exists, red dot = site not found (can be removed even in Alpha mode)
 - Runs in the background, also after a restart
