@@ -71,6 +71,6 @@
         android:stateListAnimator="@null"
         android:text="@string/go_home"
         android:textAllCaps="false"
-        android:textColor="#14162A"
+        android:textColor="#141414"
         android:textSize="15sp" />
 </LinearLayout>

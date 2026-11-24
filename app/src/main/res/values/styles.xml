@@ -15,7 +15,7 @@
 
     <style name="BlockedTheme" parent="AppTheme">
         <item name="android:windowBackground">@drawable/bg_blocked</item>
-        <item name="android:statusBarColor">#2A0E1E</item>
+        <item name="android:statusBarColor">#2E1404</item>
         <item name="android:navigationBarColor">@color/bg</item>
     </style>
 

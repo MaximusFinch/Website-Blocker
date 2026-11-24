@@ -3,7 +3,7 @@
     <path android:pathData="M0,0h108v108h-108z">
         <aapt:attr name="android:fillColor">
             <gradient android:type="linear" android:startX="0" android:startY="0" android:endX="108" android:endY="108"
-                android:startColor="#FF8E7BFF" android:endColor="#FF2A1773" /></aapt:attr>
+                android:startColor="#FFFF8A24" android:endColor="#FF1A0A00" /></aapt:attr>
     </path>
     <path android:pathData="M54,-20a60,60 0,1 1,-0.1 0z" android:fillAlpha="0.10">
         <aapt:attr name="android:fillColor">

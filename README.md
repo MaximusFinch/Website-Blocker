@@ -1,7 +1,8 @@
-# SiteBlocker
+# WebBlock
 
 Android app for blocking websites.
 
+- Closes the browser tab of a blocked site
 - Blocks websites in Chrome, Firefox, Samsung Internet, Edge, Brave, Opera, DuckDuckGo and other browsers
 - Whole sites (youtube.com), specific sections (reddit.com/r/all) or keywords (casino)
 - Add several sites at once

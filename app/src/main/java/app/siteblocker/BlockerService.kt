@@ -23,6 +23,12 @@ import android.widget.TextView
 class BlockerService : AccessibilityService() {
 
     private var overlay: View? = null
+    /**
+     * Set while the block screen is showing after a tab was closed. The screen
+     * then stays until "Go to home screen" is tapped or another app is opened,
+     * even though the browser no longer shows the blocked address.
+     */
+    private var sticky = false
     private val handler = Handler(Looper.getMainLooper())
     private val wm by lazy { getSystemService(WINDOW_SERVICE) as WindowManager }
 
@@ -64,6 +70,7 @@ class BlockerService : AccessibilityService() {
             return
         }
 
+        if (sticky) return
         if (!BlockConfig.isActiveNow(this)) { hideOverlay(); return }
         val sites = BlockConfig.getSites(this)
         if (sites.isEmpty()) { hideOverlay(); return }
@@ -73,7 +80,74 @@ class BlockerService : AccessibilityService() {
 
         val url = readUrl(root, pkg) ?: return
         val rule = BlockConfig.findMatch(url, sites)
-        if (rule == null) hideOverlay() else showOverlay(url, rule)
+        if (rule == null) { hideOverlay(); return }
+        val isNew = overlay == null
+        showOverlay(url, rule)
+        if (isNew && overlay != null) {
+            sticky = true
+            closeTab(root, pkg)
+        }
+    }
+
+    // ---------- Closing the tab ----------
+
+    /** Buttons that open the tab overview (long press opens a "Close tab" menu). */
+    private val tabButtonIds = listOf(
+        "tab_switcher_button",                // Chrome, Brave, Vivaldi, Kiwi, Ecosia
+        "mozac_browser_toolbar_tab_counter",  // Firefox
+        "counter_root", "tab_counter",        // Firefox (older/newer versions)
+        "tab_button", "tabs_button",          // Samsung Internet, others
+    )
+
+    /** Menu entry texts in English and German. */
+    private val closeTabTexts = listOf("close tab", "tab schließen", "tab schliessen", "close this tab")
+
+    /**
+     * Closes the browser tab that shows the blocked site: long press on the
+     * tab button and tap "Close tab" in the menu that opens. If that doesn't
+     * work in this browser, go back instead so the blocked page is left.
+     */
+    private fun closeTab(root: AccessibilityNodeInfo, pkg: String) {
+        val tabButton = tabButtonIds.firstNotNullOfOrNull { id ->
+            root.findAccessibilityNodeInfosByViewId("$pkg:id/$id")?.firstOrNull()
+        }
+        if (tabButton == null || !tabButton.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)) {
+            performGlobalAction(GLOBAL_ACTION_BACK)
+            return
+        }
+        handler.postDelayed({
+            val item = findCloseItem()
+            if (item != null) {
+                clickNodeOrParent(item)
+            } else {
+                // Menu didn't contain "Close tab": close it and leave the page
+                performGlobalAction(GLOBAL_ACTION_BACK)
+                handler.postDelayed({ performGlobalAction(GLOBAL_ACTION_BACK) }, 250)
+            }
+        }, 600)
+    }
+
+    private fun findCloseItem(): AccessibilityNodeInfo? {
+        val roots = windows.mapNotNull { it.root } + listOfNotNull(rootInActiveWindow)
+        for (r in roots) {
+            if (r.packageName?.toString() == packageName) continue
+            for (text in closeTabTexts) {
+                r.findAccessibilityNodeInfosByText(text)
+                    ?.firstOrNull { it.text?.toString()?.trim()?.equals(text, true) == true }
+                    ?.let { return it }
+            }
+        }
+        return null
+    }
+
+    private fun clickNodeOrParent(node: AccessibilityNodeInfo) {
+        var n: AccessibilityNodeInfo? = node
+        var depth = 0
+        while (n != null && depth < 5) {
+            if (n.isClickable && n.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return
+            n = n.parent
+            depth++
+        }
     }
 
     // ---------- Overlay ----------
@@ -107,18 +181,16 @@ class BlockerService : AccessibilityService() {
     }
 
     private fun hideOverlay() {
+        sticky = false
         val view = overlay ?: return
         overlay = null
         try { wm.removeView(view) } catch (_: Exception) {}
     }
 
-    /** "Go to home screen": leave the blocked page, then go home. */
+    /** "Go to home screen" (the tab has already been closed). */
     private fun leave() {
-        performGlobalAction(GLOBAL_ACTION_BACK)
-        handler.postDelayed({
-            performGlobalAction(GLOBAL_ACTION_HOME)
-            hideOverlay()
-        }, 250)
+        performGlobalAction(GLOBAL_ACTION_HOME)
+        handler.postDelayed({ hideOverlay() }, 250)
     }
 
     // ---------- Reading the URL ----------
