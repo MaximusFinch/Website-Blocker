@@ -1,0 +1,163 @@
+package app.siteblocker
+
+import android.accessibilityservice.AccessibilityService
+import android.graphics.PixelFormat
+import android.os.Handler
+import android.os.Looper
+import android.view.ContextThemeWrapper
+import android.view.LayoutInflater
+import android.view.View
+import android.view.WindowManager
+import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
+import android.widget.Button
+import android.widget.TextView
+
+/**
+ * Accessibility service: reads the address bar of known browsers and covers
+ * the screen with a block overlay as soon as a blocked site is opened.
+ *
+ * The overlay is drawn directly by the service (TYPE_ACCESSIBILITY_OVERLAY),
+ * so it appears instantly and can't be swallowed by activity-start limits.
+ */
+class BlockerService : AccessibilityService() {
+
+    private var overlay: View? = null
+    private val handler = Handler(Looper.getMainLooper())
+    private val wm by lazy { getSystemService(WINDOW_SERVICE) as WindowManager }
+
+    /** Known address bar view IDs per browser. */
+    private val urlBarIds = mapOf(
+        "com.android.chrome" to listOf("url_bar"),
+        "com.chrome.beta" to listOf("url_bar"),
+        "com.chrome.dev" to listOf("url_bar"),
+        "com.chrome.canary" to listOf("url_bar"),
+        "org.chromium.chrome" to listOf("url_bar"),
+        "com.brave.browser" to listOf("url_bar"),
+        "com.microsoft.emmx" to listOf("url_bar"),
+        "com.vivaldi.browser" to listOf("url_bar"),
+        "com.kiwibrowser.browser" to listOf("url_bar"),
+        "com.ecosia.android" to listOf("url_bar"),
+        "org.mozilla.firefox" to listOf("mozac_browser_toolbar_url_view", "url_bar_title"),
+        "org.mozilla.firefox_beta" to listOf("mozac_browser_toolbar_url_view", "url_bar_title"),
+        "org.mozilla.focus" to listOf("mozac_browser_toolbar_url_view", "display_url"),
+        "org.mozilla.klar" to listOf("mozac_browser_toolbar_url_view", "display_url"),
+        "com.sec.android.app.sbrowser" to listOf("location_bar_edit_text", "custom_tab_toolbar_url_bar_text"),
+        "com.sec.android.app.sbrowser.beta" to listOf("location_bar_edit_text"),
+        "com.opera.browser" to listOf("url_field"),
+        "com.opera.gx" to listOf("url_field"),
+        "com.opera.mini.native" to listOf("url_field"),
+        "com.duckduckgo.mobile.android" to listOf("omnibarTextInput"),
+        "com.mi.globalbrowser" to listOf("url"),
+        "com.android.browser" to listOf("url"),
+    )
+
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        val pkg = event?.packageName?.toString() ?: return
+        if (pkg == packageName) return
+
+        if (pkg !in urlBarIds) {
+            // Another app came to the front (e.g. home screen) -> remove the overlay
+            if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
+                pkg != "com.android.systemui" && !pkg.contains("inputmethod") && !pkg.contains("keyboard")
+            ) hideOverlay()
+            return
+        }
+
+        if (!BlockConfig.isActiveNow(this)) { hideOverlay(); return }
+        val sites = BlockConfig.getSites(this)
+        if (sites.isEmpty()) { hideOverlay(); return }
+
+        val root = rootInActiveWindow ?: return
+        if (root.packageName?.toString() != pkg) return
+
+        val url = readUrl(root, pkg) ?: return
+        val rule = BlockConfig.findMatch(url, sites)
+        if (rule == null) hideOverlay() else showOverlay(url, rule)
+    }
+
+    // ---------- Overlay ----------
+
+    private fun showOverlay(url: String, rule: String) {
+        val view = overlay ?: createOverlay() ?: return
+        view.findViewById<TextView>(R.id.blocked_url).text = BlockConfig.normalize(url)
+        view.findViewById<TextView>(R.id.blocked_rule).text = getString(R.string.rule_label, rule)
+    }
+
+    private fun createOverlay(): View? {
+        val view = LayoutInflater.from(ContextThemeWrapper(this, R.style.BlockedTheme))
+            .inflate(R.layout.activity_blocked, null)
+        view.findViewById<Button>(R.id.btn_home).setOnClickListener { leave() }
+
+        val lp = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        )
+        return try {
+            wm.addView(view, lp)
+            overlay = view
+            view
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun hideOverlay() {
+        val view = overlay ?: return
+        overlay = null
+        try { wm.removeView(view) } catch (_: Exception) {}
+    }
+
+    /** "Go to home screen": leave the blocked page, then go home. */
+    private fun leave() {
+        performGlobalAction(GLOBAL_ACTION_BACK)
+        handler.postDelayed({
+            performGlobalAction(GLOBAL_ACTION_HOME)
+            hideOverlay()
+        }, 250)
+    }
+
+    // ---------- Reading the URL ----------
+
+    private fun readUrl(root: AccessibilityNodeInfo, pkg: String): String? {
+        for (id in urlBarIds[pkg].orEmpty()) {
+            val nodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/$id") ?: continue
+            for (n in nodes) {
+                // Don't block while you are typing in the address bar
+                if (n.isFocused) return null
+                val t = n.text?.toString()
+                if (!t.isNullOrBlank()) return t
+            }
+        }
+        return searchTree(root, 0, intArrayOf(0))
+    }
+
+    /** Fallback: look for a field whose ID looks like an address bar. */
+    private fun searchTree(node: AccessibilityNodeInfo, depth: Int, count: IntArray): String? {
+        if (depth > 30 || ++count[0] > 500) return null
+        val id = node.viewIdResourceName?.lowercase()
+        if (id != null && (id.contains("url") || id.contains("omnibox") ||
+                    id.contains("address") || id.contains("location_bar"))
+        ) {
+            if (node.isFocused) return null
+            val t = node.text?.toString()
+            if (!t.isNullOrBlank() && (t.contains('.') || t.contains('/'))) return t
+        }
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            searchTree(child, depth + 1, count)?.let { return it }
+        }
+        return null
+    }
+
+    override fun onInterrupt() {}
+
+    override fun onDestroy() {
+        hideOverlay()
+        super.onDestroy()
+    }
+}

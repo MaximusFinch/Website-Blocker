@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_blocked"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="32dp">
+
+    <ImageView
+        android:layout_width="112dp"
+        android:layout_height="112dp"
+        android:background="@drawable/bg_block_icon"
+        android:contentDescription="@null"
+        android:elevation="12dp"
+        android:padding="28dp"
+        android:src="@drawable/ic_shield" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:fontFamily="sans-serif-medium"
+        android:gravity="center"
+        android:text="@string/blocked_title"
+        android:textColor="@color/text"
+        android:textSize="26sp" />
+
+    <TextView
+        android:id="@+id/blocked_url"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:background="@drawable/bg_pill_dark"
+        android:ellipsize="middle"
+        android:fontFamily="monospace"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="8dp"
+        android:singleLine="true"
+        android:textColor="@color/text"
+        android:textSize="14sp" />
+
+    <TextView
+        android:id="@+id/blocked_rule"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:textColor="@color/text_hint"
+        android:textSize="12sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="28dp"
+        android:gravity="center"
+        android:lineSpacingExtra="3dp"
+        android:maxWidth="320dp"
+        android:text="@string/blocked_hint"
+        android:textColor="@color/text_dim"
+        android:textSize="15sp" />
+
+    <Button
+        android:id="@+id/btn_home"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="40dp"
+        android:background="@drawable/bg_button_light"
+        android:fontFamily="sans-serif-medium"
+        android:maxWidth="360dp"
+        android:minHeight="54dp"
+        android:stateListAnimator="@null"
+        android:text="@string/go_home"
+        android:textAllCaps="false"
+        android:textColor="#14162A"
+        android:textSize="15sp" />
+</LinearLayout>
