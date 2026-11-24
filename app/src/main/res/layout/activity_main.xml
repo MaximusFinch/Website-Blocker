@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/scroll"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg"
@@ -64,16 +65,38 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/status"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="18dp"
-                android:fontFamily="sans-serif-medium"
-                android:paddingHorizontal="14dp"
-                android:paddingVertical="7dp"
-                android:textColor="#FFFFFF"
-                android:textSize="13sp" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="7dp"
+                    android:textColor="#FFFFFF"
+                    android:textSize="13sp" />
+
+                <!-- Alpha mode status; tap shows what it means -->
+                <TextView
+                    android:id="@+id/alpha_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="7dp"
+                    android:textColor="#FFFFFF"
+                    android:textSize="13sp" />
+            </LinearLayout>
         </LinearLayout>
 
         <!-- Notice: accessibility off -->
@@ -100,20 +123,6 @@
                 style="@style/PrimaryButton"
                 android:text="@string/enable_service" />
         </LinearLayout>
-
-        <!-- Notice: strict mode -->
-        <TextView
-            android:id="@+id/locked"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:background="@drawable/bg_banner_warn"
-            android:drawablePadding="10dp"
-            android:padding="14dp"
-            android:text="@string/locked_hint"
-            android:textColor="@color/warn"
-            android:textSize="14sp"
-            android:visibility="gone" />
 
         <!-- Notice: blocking turned off. Only shown while off, slides away once turned on -->
         <LinearLayout
@@ -199,7 +208,7 @@
                 android:visibility="gone" />
         </LinearLayout>
 
-        <!-- Schedule (hidden in strict mode) -->
+        <!-- Schedule (dimmed and read-only in Alpha mode) -->
         <LinearLayout
             android:id="@+id/card_schedule"
             style="@style/Card">
@@ -259,8 +268,10 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Strict mode -->
-        <LinearLayout style="@style/Card">
+        <!-- Alpha mode -->
+        <LinearLayout
+            android:id="@+id/card_alpha"
+            style="@style/Card">
 
             <TextView
                 style="@style/CardTitle"

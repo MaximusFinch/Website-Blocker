@@ -53,7 +53,7 @@ class MainActivity : Activity() {
     private lateinit var btnAdd: Button
     private lateinit var serviceCard: View
     private lateinit var btnService: Button
-    private lateinit var locked: TextView
+    private lateinit var alphaStatus: TextView
     private lateinit var input: EditText
     private lateinit var siteList: LinearLayout
     private lateinit var swSchedule: Switch
@@ -73,7 +73,7 @@ class MainActivity : Activity() {
     private var binding = false
     private val dateFmt = SimpleDateFormat("EEEE, MMM d, yyyy 'at' HH:mm", Locale.ENGLISH)
 
-    // Refresh every 30 s so the strict mode countdown stays current
+    // Refresh every 30 s so the Alpha mode countdown stays current
     private val handler = Handler(Looper.getMainLooper())
     private val ticker = object : Runnable {
         override fun run() { refresh(); handler.postDelayed(this, 30_000) }
@@ -112,7 +112,7 @@ class MainActivity : Activity() {
         }
         serviceCard = findViewById(R.id.service_card)
         btnService = findViewById(R.id.btn_service)
-        locked = findViewById(R.id.locked)
+        alphaStatus = findViewById(R.id.alpha_status)
         input = findViewById(R.id.input_site)
         siteList = findViewById(R.id.site_list)
         swSchedule = findViewById(R.id.sw_schedule)
@@ -191,6 +191,13 @@ class MainActivity : Activity() {
         }
 
         btnStrict.setOnClickListener { pickStrictEnd() }
+
+        // Alpha mode status: explains the lock while active, otherwise jumps to its card
+        alphaStatus.setOnClickListener {
+            if (isLocked()) denied()
+            else findViewById<android.widget.ScrollView>(R.id.scroll)
+                .smoothScrollTo(0, findViewById<View>(R.id.card_alpha).top)
+        }
     }
 
     override fun onResume() {
@@ -270,8 +277,15 @@ class MainActivity : Activity() {
 
     private fun isLocked() = BlockConfig.isStrictLocked(this)
 
-    private fun denied() =
-        Toast.makeText(this, R.string.locked_hint, Toast.LENGTH_SHORT).show()
+    /** The Alpha mode message: only shown when a locked control (or the Alpha status) is tapped. */
+    private fun denied() {
+        val until = BlockConfig.getStrictUntil(this)
+        Toast.makeText(
+            this,
+            getString(R.string.locked_hint) + "\n(${remaining(until)} left)",
+            Toast.LENGTH_LONG,
+        ).show()
+    }
 
     private fun isServiceEnabled(): Boolean {
         val enabled = Settings.Secure.getString(
@@ -325,11 +339,21 @@ class MainActivity : Activity() {
         serviceCard.visibility = if (serviceOn) View.GONE else View.VISIBLE
 
         val lock = isLocked()
-        locked.visibility = if (lock) View.VISIBLE else View.GONE
-        // Only shown while blocking is paused (never in strict mode)
+        // Second pill: Alpha mode on (orange dot and outline) or off (grey)
+        val alphaColor = if (lock) getColor(R.color.accent2) else 0xFF8A8A8A.toInt()
+        alphaStatus.text = SpannableStringBuilder(getString(if (lock) R.string.alpha_on else R.string.alpha_off)).apply {
+            setSpan(ForegroundColorSpan(alphaColor), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        alphaStatus.alpha = if (lock) 1f else 0.75f
+        alphaStatus.background = GradientDrawable().apply {
+            cornerRadius = dp(100).toFloat()
+            setColor(0x59000000)
+            setStroke(dp(1), (alphaColor and 0x00FFFFFF) or 0x99000000.toInt())
+        }
+        // Only shown while blocking is paused (never in Alpha mode)
         cardEnabled.visibility = if (!lock && !BlockConfig.isEnabled(this)) View.VISIBLE else View.GONE
-        // Can't be changed in strict mode -> don't show at all
-        cardSchedule.visibility = if (lock) View.GONE else View.VISIBLE
+        // Stays visible in Alpha mode but dimmed; tapping it shows the Alpha mode message
+        cardSchedule.alpha = if (lock) 0.5f else 1f
 
         swSchedule.isChecked = BlockConfig.isScheduleEnabled(this)
         scheduleBox.visibility = if (swSchedule.isChecked) View.VISIBLE else View.GONE
@@ -342,8 +366,7 @@ class MainActivity : Activity() {
 
         if (lock) {
             val until = BlockConfig.getStrictUntil(this)
-            strictStatus.text = "🔒  Until ${dateFmt.format(Date(until))}\n      ${remaining(until)} left" +
-                scheduleSummary()
+            strictStatus.text = "🔒  Until ${dateFmt.format(Date(until))}\n      ${remaining(until)} left"
             strictStatus.setTextColor(getColor(R.color.warn))
             btnStrict.setText(R.string.strict_extend)
         } else {
@@ -355,15 +378,6 @@ class MainActivity : Activity() {
         renderSites(lock)
 
         binding = false
-    }
-
-    /** Schedule as a short line so it is still visible in strict mode. */
-    private fun scheduleSummary(): String {
-        if (!BlockConfig.isScheduleEnabled(this)) return "\n      Blocking around the clock"
-        val days = BlockConfig.getDays(this)
-        val names = dayOrder.filter { (day, _) -> days and (1 shl (day - 1)) != 0 }.map { it.second }
-        return "\n      Schedule: ${names.joinToString(", ")}  " +
-            "${fmt(BlockConfig.getStart(this))}–${fmt(BlockConfig.getEnd(this))}"
     }
 
     private fun remaining(until: Long): String {
@@ -432,7 +446,7 @@ class MainActivity : Activity() {
                 setTextColor(getColor(R.color.text_dim))
                 minWidth = dp(44)
                 minimumWidth = dp(44)
-                isEnabled = !lock
+                alpha = if (lock) 0.5f else 1f
                 setOnClickListener { removeSite(site) }
             })
             siteList.addView(row)
@@ -530,7 +544,7 @@ class MainActivity : Activity() {
             .show()
     }
 
-    // ---------- Strict mode ----------
+    // ---------- Alpha mode ----------
 
     /** Pick the date in a calendar first, then the time. */
     private fun pickStrictEnd() {
@@ -560,7 +574,7 @@ class MainActivity : Activity() {
             set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
             set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
         }.timeInMillis
-        dp.setTitle("Strict mode until which day?")
+        dp.setTitle("Alpha mode until which day?")
         dp.show()
     }
 
@@ -572,13 +586,13 @@ class MainActivity : Activity() {
             return
         }
         if (current > now && end <= current) {
-            Toast.makeText(this, "Strict mode can only be extended, not shortened.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Alpha mode can only be extended, not shortened.", Toast.LENGTH_LONG).show()
             return
         }
         AlertDialog.Builder(this)
             .setTitle(R.string.strict_header)
             .setMessage(
-                "Strict mode until ${dateFmt.format(Date(end))}\n(${remaining(end)})\n\n" +
+                "Alpha mode until ${dateFmt.format(Date(end))}\n(${remaining(end)})\n\n" +
                     "Until then you can't remove sites, change the schedule " +
                     "or turn blocking off. This cannot be undone."
             )

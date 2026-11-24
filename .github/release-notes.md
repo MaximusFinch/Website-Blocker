@@ -4,7 +4,7 @@ WebBlock blocks websites on your Android phone – in Chrome, Firefox, Samsung I
 - Block whole sites, single sections (reddit.com/r/all) or keywords
 - Closes the browser tab of a blocked site
 - Schedule with times and days of the week
-- Strict mode until a chosen date and time
+- Alpha mode: locks your settings until a chosen date and time
 - Block list protected by fingerprint or PIN
 - Checks new sites and suggests fixes for typos
 - No ads, no tracking, no account

@@ -9,5 +9,5 @@ Android app for blocking websites.
 - Checks that a site exists and suggests a fix for typos
 - Block list protected by fingerprint or PIN
 - Schedule with times and days of the week
-- Strict mode until a chosen date and time
+- Alpha mode: locks your settings until a chosen date and time
 - Runs in the background, also after a restart
