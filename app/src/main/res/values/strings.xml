@@ -10,8 +10,8 @@
 
     <string name="status_ok">●  Protection on</string>
     <string name="status_off">●  Unprotected</string>
-    <string name="alpha_on">●  Alpha on</string>
-    <string name="alpha_off">●  Alpha off</string>
+    <string name="alpha_on">●  Alpha mode on</string>
+    <string name="alpha_off">●  Alpha mode off</string>
     <string name="sub_active">Sites on your list are being blocked</string>
     <string name="sub_service_off">Accessibility service is off</string>
     <string name="sub_disabled">Blocking is paused</string>
@@ -42,5 +42,5 @@
     <string name="locked_hint">Alpha mode is activated – changes are possible once it ends.</string>
     <string name="help">Android 13 and newer: Settings › Apps › WebBlock › ⋮ › \"Allow restricted settings\", then enable it here.</string>
     <string name="version_label">Version</string>
-    <string name="version">WebBlock 1.15</string>
+    <string name="version">WebBlock 1.16</string>
 </resources>

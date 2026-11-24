@@ -329,7 +329,7 @@ class MainActivity : Activity() {
         status.background = GradientDrawable().apply {
             cornerRadius = dp(100).toFloat()
             setColor(0x59000000)                                           // black, 35 %
-            setStroke(dp(1), (statusColor and 0x00FFFFFF) or 0x99000000.toInt()) // state color, 60 %
+            setStroke(dp(1), (statusColor and 0x00FFFFFF) or 0xCC000000.toInt()) // state color, 80 %
         }
         headerIcon.background = GradientDrawable().apply {
             cornerRadius = dp(18).toFloat()
@@ -348,7 +348,7 @@ class MainActivity : Activity() {
         alphaStatus.background = GradientDrawable().apply {
             cornerRadius = dp(100).toFloat()
             setColor(0x59000000)
-            setStroke(dp(1), (alphaColor and 0x00FFFFFF) or 0x99000000.toInt())
+            setStroke(dp(1), (alphaColor and 0x00FFFFFF) or 0xCC000000.toInt())
         }
         // Only shown while blocking is paused (never in Alpha mode)
         cardEnabled.visibility = if (!lock && !BlockConfig.isEnabled(this)) View.VISIBLE else View.GONE
