@@ -28,6 +28,10 @@ object BlockConfig {
     fun setStrictUntil(ctx: Context, v: Long) = prefs(ctx).edit().putLong("strict_until", v).apply()
     fun isStrictLocked(ctx: Context) = getStrictUntil(ctx) > System.currentTimeMillis()
 
+    // ---- Troubleshooting: what happened when the last tab was closed ----
+    fun getTabLog(ctx: Context) = prefs(ctx).getString("tab_log", "") ?: ""
+    fun setTabLog(ctx: Context, v: String) = prefs(ctx).edit().putString("tab_log", v).apply()
+
     // ---- Schedule ----
     fun isScheduleEnabled(ctx: Context) = prefs(ctx).getBoolean("schedule", false)
     fun setScheduleEnabled(ctx: Context, v: Boolean) = prefs(ctx).edit().putBoolean("schedule", v).apply()

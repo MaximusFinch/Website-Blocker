@@ -1,7 +1,10 @@
 package app.siteblocker
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.GestureDescription
+import android.graphics.Path
 import android.graphics.PixelFormat
+import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
 import android.view.ContextThemeWrapper
@@ -102,52 +105,180 @@ class BlockerService : AccessibilityService() {
     /** Menu entry texts in English and German. */
     private val closeTabTexts = listOf("close tab", "tab schließen", "tab schliessen", "close this tab")
 
+    /** What happened during the last attempt, shown in the app for troubleshooting. */
+    private val closeLog = StringBuilder()
+
+    private fun log(step: String) {
+        if (closeLog.isNotEmpty()) closeLog.append("  ·  ")
+        closeLog.append(step)
+        BlockConfig.setTabLog(this, closeLog.toString())
+    }
+
     /**
-     * Closes the browser tab that shows the blocked site: long press on the
-     * tab button and tap "Close tab" in the menu that opens. If that doesn't
-     * work in this browser, go back instead so the blocked page is left.
+     * Closes the browser tab that shows the blocked site:
+     * 1. Link opened from another app (Custom Tab): tap its X button.
+     * 2. Normal tab: long press on the tab button and tap "Close tab" in the menu.
+     *    First as an accessibility action, then as a real long-press gesture.
+     * 3. If nothing works: go back so the blocked page is at least left.
      */
     private fun closeTab(root: AccessibilityNodeInfo, pkg: String) {
-        val tabButton = tabButtonIds.firstNotNullOfOrNull { id ->
-            root.findAccessibilityNodeInfosByViewId("$pkg:id/$id")?.firstOrNull()
+        closeLog.setLength(0)
+        log(pkg)
+
+        root.findAccessibilityNodeInfosByViewId("$pkg:id/close_button")?.firstOrNull()?.let {
+            val ok = clickNodeOrParent(it)
+            log("custom tab X: $ok")
+            if (ok) return
         }
-        if (tabButton == null || !tabButton.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)) {
-            performGlobalAction(GLOBAL_ACTION_BACK)
+
+        val tabButton = findTabButton(root, pkg)
+        if (tabButton == null) {
+            log("no tab button")
+            goBack()
             return
         }
-        handler.postDelayed({
-            val item = findCloseItem()
-            if (item != null) {
-                clickNodeOrParent(item)
-            } else {
-                // Menu didn't contain "Close tab": close it and leave the page
-                performGlobalAction(GLOBAL_ACTION_BACK)
-                handler.postDelayed({ performGlobalAction(GLOBAL_ACTION_BACK) }, 250)
+        log("tab button: " + (tabButton.viewIdResourceName?.substringAfter('/') ?: tabButton.contentDescription))
+        log("long click: " + tabButton.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK))
+
+        waitForCloseItem(8) { found ->
+            if (found) return@waitForCloseItem
+            // Second try: a real long press on the button
+            val bounds = Rect()
+            tabButton.refresh()
+            tabButton.getBoundsInScreen(bounds)
+            log("gesture")
+            pressAt(bounds, 700) {
+                waitForCloseItem(10) { found2 ->
+                    if (!found2) {
+                        log("menu not found, seen: " + visibleTexts())
+                        goBack()
+                    }
+                }
             }
-        }, 600)
+        }
+    }
+
+    /** Looks for the "Close tab" entry for a while and taps it. */
+    private fun waitForCloseItem(tries: Int, onDone: (Boolean) -> Unit) {
+        val item = findCloseItem()
+        if (item != null) {
+            val ok = clickNodeOrParent(item)
+            if (!ok) {
+                val r = Rect()
+                item.getBoundsInScreen(r)
+                pressAt(r, 60) {}
+            }
+            log("close tab tapped (" + (if (ok) "action" else "gesture") + ")")
+            onDone(true)
+            return
+        }
+        if (tries <= 0) { onDone(false); return }
+        handler.postDelayed({ waitForCloseItem(tries - 1, onDone) }, 150)
+    }
+
+    private fun goBack() {
+        performGlobalAction(GLOBAL_ACTION_BACK)
+        handler.postDelayed({ performGlobalAction(GLOBAL_ACTION_BACK) }, 250)
+    }
+
+    private fun findTabButton(root: AccessibilityNodeInfo, pkg: String): AccessibilityNodeInfo? {
+        for (id in tabButtonIds) {
+            root.findAccessibilityNodeInfosByViewId("$pkg:id/$id")?.firstOrNull()?.let { return it }
+        }
+        // Fallback: a button whose description mentions tabs ("Switch or close tabs")
+        return findNode(root) { n ->
+            val d = n.contentDescription?.toString()?.lowercase()
+            d != null && (n.isLongClickable || n.isClickable) && d.contains("tab")
+        }
     }
 
     private fun findCloseItem(): AccessibilityNodeInfo? {
-        val roots = windows.mapNotNull { it.root } + listOfNotNull(rootInActiveWindow)
-        for (r in roots) {
-            if (r.packageName?.toString() == packageName) continue
-            for (text in closeTabTexts) {
-                r.findAccessibilityNodeInfosByText(text)
-                    ?.firstOrNull { it.text?.toString()?.trim()?.equals(text, true) == true }
-                    ?.let { return it }
-            }
+        for (r in browserRoots()) {
+            findNode(r) { n ->
+                val t = (n.text ?: n.contentDescription)?.toString()?.trim()?.lowercase()
+                t != null && closeTabTexts.any { t == it }
+            }?.let { return it }
         }
         return null
     }
 
-    private fun clickNodeOrParent(node: AccessibilityNodeInfo) {
+    /** Root nodes of all visible windows except our own block screen. */
+    private fun browserRoots(): List<AccessibilityNodeInfo> =
+        (windows.mapNotNull { it.root } + listOfNotNull(rootInActiveWindow))
+            .filter { it.packageName?.toString() != packageName }
+
+    /** A few texts on screen, to see in the log what the menu looked like. */
+    private fun visibleTexts(): String {
+        val texts = mutableListOf<String>()
+        for (r in browserRoots()) {
+            findNode(r) { n ->
+                val t = n.text?.toString()
+                if (t != null && t.isNotBlank() && t.length < 40) texts += t
+                texts.size >= 10
+            }
+        }
+        return texts.distinct().joinToString(", ").ifEmpty { "nothing" }
+    }
+
+    private fun findNode(
+        node: AccessibilityNodeInfo,
+        match: (AccessibilityNodeInfo) -> Boolean,
+    ): AccessibilityNodeInfo? = findNode(node, 0, intArrayOf(0), match)
+
+    private fun findNode(
+        node: AccessibilityNodeInfo,
+        depth: Int,
+        count: IntArray,
+        match: (AccessibilityNodeInfo) -> Boolean,
+    ): AccessibilityNodeInfo? {
+        if (depth > 40 || ++count[0] > 800) return null
+        if (match(node)) return node
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            findNode(child, depth + 1, count, match)?.let { return it }
+        }
+        return null
+    }
+
+    private fun clickNodeOrParent(node: AccessibilityNodeInfo): Boolean {
         var n: AccessibilityNodeInfo? = node
         var depth = 0
         while (n != null && depth < 5) {
-            if (n.isClickable && n.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return
+            if (n.isClickable && n.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
             n = n.parent
             depth++
         }
+        return false
+    }
+
+    /**
+     * Real touch at the middle of [bounds] (tap or long press). The block screen
+     * lets touches through for that moment so they reach the browser.
+     */
+    private fun pressAt(bounds: Rect, durationMs: Long, then: () -> Unit) {
+        if (bounds.isEmpty) { then(); return }
+        setOverlayTouchable(false)
+        val path = Path()
+        path.moveTo(bounds.exactCenterX(), bounds.exactCenterY())
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, durationMs))
+            .build()
+        val done = Runnable {
+            handler.postDelayed({ setOverlayTouchable(true); then() }, 150)
+        }
+        val started = dispatchGesture(gesture, object : AccessibilityService.GestureResultCallback() {
+            override fun onCompleted(g: GestureDescription?) { done.run() }
+            override fun onCancelled(g: GestureDescription?) { log("gesture cancelled"); done.run() }
+        }, handler)
+        if (!started) { log("gesture not started"); done.run() }
+    }
+
+    private fun setOverlayTouchable(touchable: Boolean) {
+        val view = overlay ?: return
+        val lp = view.layoutParams as? WindowManager.LayoutParams ?: return
+        lp.flags = if (touchable) lp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+        else lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        try { wm.updateViewLayout(view, lp) } catch (_: Exception) {}
     }
 
     // ---------- Overlay ----------
