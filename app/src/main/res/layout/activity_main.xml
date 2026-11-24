@@ -286,6 +286,18 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="22dp"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:letterSpacing="0.1"
+            android:text="@string/version_label"
+            android:textAllCaps="true"
+            android:textColor="@color/text_hint"
+            android:textSize="10sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
             android:gravity="center"
             android:text="@string/version"
             android:textColor="@color/text_hint"

@@ -3,6 +3,7 @@ package app.siteblocker
 import android.app.Activity
 import android.app.AlertDialog
 import android.app.DatePickerDialog
+import android.app.KeyguardManager
 import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
@@ -10,7 +11,11 @@ import android.content.res.Configuration
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.hardware.biometrics.BiometricManager
+import android.hardware.biometrics.BiometricPrompt
+import android.os.Build
 import android.os.Bundle
+import android.os.CancellationSignal
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -38,6 +43,10 @@ class MainActivity : Activity() {
     private lateinit var sitesToggleText: TextView
     private lateinit var sitesChevron: TextView
     private var listExpanded = false
+    /** True after a successful fingerprint / PIN check, until the app goes to the background. */
+    private var listUnlocked = false
+    private var onAuthResult: (() -> Unit)? = null
+    private lateinit var btnAdd: Button
     private lateinit var serviceCard: View
     private lateinit var btnService: Button
     private lateinit var locked: TextView
@@ -87,8 +96,16 @@ class MainActivity : Activity() {
         sitesToggleText = findViewById(R.id.sites_toggle_text)
         sitesChevron = findViewById(R.id.sites_chevron)
         findViewById<View>(R.id.sites_toggle).setOnClickListener {
-            listExpanded = !listExpanded
-            refresh()
+            when {
+                listExpanded -> { listExpanded = false; refresh() }
+                listUnlocked -> { listExpanded = true; refresh() }
+                // Fingerprint, face or screen lock PIN before the list is shown
+                else -> authenticate {
+                    listUnlocked = true
+                    listExpanded = true
+                    refresh()
+                }
+            }
         }
         serviceCard = findViewById(R.id.service_card)
         btnService = findViewById(R.id.btn_service)
@@ -108,7 +125,8 @@ class MainActivity : Activity() {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
 
-        findViewById<Button>(R.id.btn_add).setOnClickListener { addSites() }
+        btnAdd = findViewById(R.id.btn_add)
+        btnAdd.setOnClickListener { addSites() }
 
         swEnabled.setOnCheckedChangeListener { _, checked ->
             if (binding) return@setOnCheckedChangeListener
@@ -170,6 +188,71 @@ class MainActivity : Activity() {
         handler.removeCallbacks(ticker)
     }
 
+    override fun onStop() {
+        super.onStop()
+        // Leaving the app locks the list again
+        listUnlocked = false
+        listExpanded = false
+    }
+
+    // ---------- Fingerprint / PIN ----------
+
+    /**
+     * Asks for fingerprint, face or the screen lock (PIN, pattern, password),
+     * like Google Pay does. Without any screen lock the list simply opens.
+     */
+    private fun authenticate(onSuccess: () -> Unit) {
+        val keyguard = getSystemService(KeyguardManager::class.java)
+        if (keyguard == null || !keyguard.isDeviceSecure) { onSuccess(); return }
+
+        val callback = object : BiometricPrompt.AuthenticationCallback() {
+            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult?) {
+                onSuccess()
+            }
+        }
+        when {
+            Build.VERSION.SDK_INT >= 30 -> BiometricPrompt.Builder(this)
+                .setTitle(getString(R.string.auth_title))
+                .setSubtitle(getString(R.string.auth_subtitle))
+                .setAllowedAuthenticators(
+                    BiometricManager.Authenticators.BIOMETRIC_WEAK or
+                        BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                )
+                .build()
+                .authenticate(CancellationSignal(), mainExecutor, callback)
+
+            Build.VERSION.SDK_INT == 29 -> {
+                @Suppress("DEPRECATION")
+                val prompt = BiometricPrompt.Builder(this)
+                    .setTitle(getString(R.string.auth_title))
+                    .setSubtitle(getString(R.string.auth_subtitle))
+                    .setDeviceCredentialAllowed(true)
+                    .build()
+                prompt.authenticate(CancellationSignal(), mainExecutor, callback)
+            }
+
+            else -> {
+                // Older Android: the system screen lock prompt
+                @Suppress("DEPRECATION")
+                val intent = keyguard.createConfirmDeviceCredentialIntent(
+                    getString(R.string.auth_title), getString(R.string.auth_subtitle)
+                )
+                if (intent == null) { onSuccess(); return }
+                onAuthResult = onSuccess
+                @Suppress("DEPRECATION")
+                startActivityForResult(intent, REQ_AUTH)
+            }
+        }
+    }
+
+    @Deprecated("Only used on Android 9 and older")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        @Suppress("DEPRECATION")
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQ_AUTH && resultCode == RESULT_OK) onAuthResult?.invoke()
+        onAuthResult = null
+    }
+
     private fun isLocked() = BlockConfig.isStrictLocked(this)
 
     private fun denied() =
@@ -188,14 +271,20 @@ class MainActivity : Activity() {
         binding = true
 
         val serviceOn = isServiceEnabled()
-        // Green = blocking now, amber = paused (off / outside schedule), red = accessibility off
-        val (statusText, statusColor, statusTextColor) = when {
-            !serviceOn -> Triple(R.string.status_off, getColor(R.color.danger), 0xFFFFFFFF.toInt())
-            !BlockConfig.isActiveNow(this) -> Triple(R.string.status_paused, getColor(R.color.warn), 0xFF2B1C00.toInt())
-            else -> Triple(R.string.status_ok, getColor(R.color.success), 0xFF06281A.toInt())
+        // Green only while sites are really being blocked right now, otherwise red.
+        // The line below the status says why the protection is not active.
+        val reason = when {
+            !serviceOn -> R.string.sub_service_off
+            !BlockConfig.isEnabled(this) -> R.string.sub_disabled
+            BlockConfig.getSites(this).isEmpty() -> R.string.sub_no_sites
+            !BlockConfig.isActiveNow(this) -> R.string.sub_schedule
+            else -> null
         }
-        status.setText(statusText)
-        status.setTextColor(statusTextColor)
+        val protectedNow = reason == null
+        val statusColor = getColor(if (protectedNow) R.color.success else R.color.danger)
+        status.setText(if (protectedNow) R.string.status_ok else R.string.status_off)
+        status.setTextColor(if (protectedNow) 0xFF06281A.toInt() else 0xFFFFFFFF.toInt())
+        headerSub.setText(reason ?: R.string.sub_active)
         status.background = GradientDrawable().apply {
             cornerRadius = dp(100).toFloat()
             setColor(statusColor)
@@ -205,13 +294,6 @@ class MainActivity : Activity() {
             setColor((statusColor and 0x00FFFFFF) or 0x59000000) // same color, 35 % opacity
         }
         serviceCard.visibility = if (serviceOn) View.GONE else View.VISIBLE
-
-        val count = BlockConfig.getSites(this).size
-        headerSub.text = when (count) {
-            0 -> "No sites blocked yet"
-            1 -> "1 site blocked"
-            else -> "$count sites blocked"
-        }
 
         val lock = isLocked()
         locked.visibility = if (lock) View.VISIBLE else View.GONE
@@ -272,7 +354,11 @@ class MainActivity : Activity() {
         siteList.removeAllViews()
         val sites = BlockConfig.getSites(this)
         sitesToggleText.setText(R.string.sites_header)
-        sitesChevron.text = if (listExpanded) "▴" else "▾"
+        sitesChevron.text = when {
+            listExpanded -> "▴"
+            listUnlocked -> "▾"
+            else -> "🔒"
+        }
         siteList.visibility = if (listExpanded) View.VISIBLE else View.GONE
         if (!listExpanded) return
         if (sites.isEmpty()) {
@@ -323,32 +409,84 @@ class MainActivity : Activity() {
         }
     }
 
-    /** Adds all entered sites (separated by new lines, commas, semicolons or spaces). */
+    /**
+     * Adds all entered sites (separated by new lines, commas, semicolons or spaces).
+     * Each domain is checked first; for unknown or misspelled ones the user can
+     * pick the suggested correction, keep the entry as typed or skip it.
+     */
     private fun addSites() {
+        val existing = BlockConfig.getSites(this)
         val entries = input.text.toString()
             .split(Regex("[\\s,;]+"))
             .map { BlockConfig.normalize(it) }
             .filter { it.isNotEmpty() }
             .distinct()
         if (entries.isEmpty()) return
+        val newOnes = entries.filter { e -> existing.none { it.equals(e, true) } }
+        if (newOnes.isEmpty()) { toast("Already on the list"); return }
 
+        btnAdd.isEnabled = false
+        btnAdd.text = "Checking…"
+        Thread {
+            val report = SiteChecker.check(newOnes)
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                btnAdd.isEnabled = true
+                btnAdd.setText(R.string.add)
+                input.setText("")
+                if (report.offline) toast("No internet – added without checking")
+                reviewNext(ArrayDeque(report.results), mutableListOf())
+            }
+        }.start()
+    }
+
+    /** Goes through the checked entries one by one and asks about the doubtful ones. */
+    private fun reviewNext(queue: ArrayDeque<SiteChecker.Result>, accepted: MutableList<String>) {
+        val r = queue.removeFirstOrNull() ?: return saveAdded(accepted)
+        if (r.status == SiteChecker.Status.OK) { accepted += r.entry; reviewNext(queue, accepted); return }
+
+        val next = { site: String? -> site?.let { accepted += it }; reviewNext(queue, accepted) }
+        val dialog = AlertDialog.Builder(this).setCancelable(false)
+        val fix = r.suggestion
+        if (fix != null) {
+            dialog.setTitle("Did you mean $fix?")
+                .setMessage(
+                    if (r.status == SiteChecker.Status.TYPO)
+                        "\"${r.entry}\" looks like a typo of \"$fix\"."
+                    else
+                        "\"${r.entry}\" couldn't be found."
+                )
+                .setPositiveButton("Use $fix") { _, _ -> next(fix) }
+                .setNeutralButton("Keep as typed") { _, _ -> next(r.entry) }
+                .setNegativeButton("Skip") { _, _ -> next(null) }
+        } else {
+            dialog.setTitle("Site not found")
+                .setMessage("\"${r.entry}\" couldn't be found. Please check the spelling.")
+                .setPositiveButton("Add anyway") { _, _ -> next(r.entry) }
+                .setNegativeButton("Skip") { _, _ -> next(null) }
+        }
+        dialog.show()
+    }
+
+    private fun saveAdded(accepted: List<String>) {
+        if (accepted.isEmpty()) return
         val sites = BlockConfig.getSites(this).toMutableList()
         var added = 0
-        for (e in entries) {
+        for (e in accepted) {
             if (sites.none { it.equals(e, true) }) { sites.add(e); added++ }
         }
         BlockConfig.setSites(this, sites)
-        input.setText("")
-        val skipped = entries.size - added
-        val msg = when {
-            added == 0 -> "Already on the list"
-            skipped > 0 -> "$added added ($skipped already on the list)"
-            added == 1 -> "1 site added"
-            else -> "$added sites added"
-        }
-        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+        toast(
+            when (added) {
+                0 -> "Already on the list"
+                1 -> "Site added"
+                else -> "Sites added"
+            }
+        )
         refresh()
     }
+
+    private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
 
     private fun removeSite(site: String) {
         if (isLocked()) { denied(); return }
@@ -432,4 +570,8 @@ class MainActivity : Activity() {
     private fun fmt(min: Int) = "%02d:%02d".format(min / 60, min % 60)
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+
+    private companion object {
+        const val REQ_AUTH = 1
+    }
 }

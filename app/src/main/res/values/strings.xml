@@ -8,8 +8,14 @@
     <string name="go_home">Go to home screen</string>
 
     <string name="status_ok">●  Protection on</string>
-    <string name="status_off">●  Not active</string>
-    <string name="status_paused">●  Paused</string>
+    <string name="status_off">●  Unprotected</string>
+    <string name="sub_active">Sites on your list are being blocked</string>
+    <string name="sub_service_off">Accessibility service is off</string>
+    <string name="sub_disabled">Blocking is turned off</string>
+    <string name="sub_no_sites">No sites on the block list</string>
+    <string name="sub_schedule">Outside the scheduled times</string>
+    <string name="auth_title">Show blocked sites</string>
+    <string name="auth_subtitle">Confirm it\'s you</string>
     <string name="service_off_title">Turn on accessibility</string>
     <string name="service_off_desc">SiteBlocker needs the accessibility service to block sites.</string>
     <string name="enable_service">Enable now</string>
@@ -31,5 +37,6 @@
     <string name="strict_desc">Until the time you choose, you can\'t remove sites, change the schedule or turn blocking off. You can always extend it and add new sites.</string>
     <string name="locked_hint">Strict mode is activated – changes are possible once it ends.</string>
     <string name="help">Android 13 and newer: Settings › Apps › SiteBlocker › ⋮ › \"Allow restricted settings\", then enable it here.</string>
-    <string name="version">SiteBlocker 1.6</string>
+    <string name="version_label">Version</string>
+    <string name="version">SiteBlocker 1.7</string>
 </resources>
