@@ -55,5 +55,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SiteBlocker-apk
+          name: WebBlock-apk
           path: ${{ env.PROJ }}/app/build/outputs/apk/debug/app-debug.apk
