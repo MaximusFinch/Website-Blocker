@@ -9,6 +9,7 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:animateLayoutChanges="true"
         android:orientation="vertical"
         android:paddingHorizontal="18dp"
         android:paddingTop="12dp"
@@ -114,19 +115,24 @@
             android:textSize="14sp"
             android:visibility="gone" />
 
-        <!-- Master switch (hidden in strict mode) -->
+        <!-- Notice: blocking turned off. Only shown while off, slides away once turned on -->
         <LinearLayout
             android:id="@+id/card_enabled"
-            style="@style/Card">
+            style="@style/Card"
+            android:visibility="gone">
 
-            <Switch
-                android:id="@+id/sw_enabled"
-                style="@style/CardSwitch"
-                android:text="@string/blocking_enabled" />
+            <TextView
+                style="@style/CardTitle"
+                android:text="@string/blocking_off_title" />
 
             <TextView
                 style="@style/CardDesc"
-                android:text="@string/blocking_desc" />
+                android:text="@string/blocking_off_desc" />
+
+            <Button
+                android:id="@+id/btn_enable"
+                style="@style/PrimaryButton"
+                android:text="@string/turn_on" />
         </LinearLayout>
 
         <!-- Block list -->

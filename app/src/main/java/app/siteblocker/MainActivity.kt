@@ -50,7 +50,6 @@ class MainActivity : Activity() {
     private lateinit var serviceCard: View
     private lateinit var btnService: Button
     private lateinit var locked: TextView
-    private lateinit var swEnabled: Switch
     private lateinit var input: EditText
     private lateinit var siteList: LinearLayout
     private lateinit var swSchedule: Switch
@@ -110,7 +109,6 @@ class MainActivity : Activity() {
         serviceCard = findViewById(R.id.service_card)
         btnService = findViewById(R.id.btn_service)
         locked = findViewById(R.id.locked)
-        swEnabled = findViewById(R.id.sw_enabled)
         input = findViewById(R.id.input_site)
         siteList = findViewById(R.id.site_list)
         swSchedule = findViewById(R.id.sw_schedule)
@@ -128,10 +126,23 @@ class MainActivity : Activity() {
         btnAdd = findViewById(R.id.btn_add)
         btnAdd.setOnClickListener { addSites() }
 
-        swEnabled.setOnCheckedChangeListener { _, checked ->
-            if (binding) return@setOnCheckedChangeListener
-            if (!checked && isLocked()) { denied(); refresh(); return@setOnCheckedChangeListener }
-            BlockConfig.setEnabled(this, checked); refresh()
+        // Paused-notice: "Turn on" closes it (it slides away upwards)
+        findViewById<Button>(R.id.btn_enable).setOnClickListener {
+            BlockConfig.setEnabled(this, true); refresh()
+        }
+
+        // Tapping the status pauses blocking (or turns it back on)
+        status.setOnClickListener {
+            when {
+                !BlockConfig.isEnabled(this) -> { BlockConfig.setEnabled(this, true); refresh() }
+                isLocked() -> denied()
+                else -> AlertDialog.Builder(this)
+                    .setTitle("Pause blocking?")
+                    .setMessage("Nothing will be blocked until you turn it back on.")
+                    .setPositiveButton("Pause") { _, _ -> BlockConfig.setEnabled(this, false); refresh() }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
         }
 
         swSchedule.setOnCheckedChangeListener { _, checked ->
@@ -282,7 +293,10 @@ class MainActivity : Activity() {
         }
         val protectedNow = reason == null
         val statusColor = getColor(if (protectedNow) R.color.success else R.color.danger)
-        status.setText(if (protectedNow) R.string.status_ok else R.string.status_off)
+        // Pause symbol shows that the status can be tapped to pause blocking
+        val canPause = BlockConfig.isEnabled(this) && !isLocked()
+        status.text = getString(if (protectedNow) R.string.status_ok else R.string.status_off) +
+            if (canPause) "   ⏸" else ""
         status.setTextColor(if (protectedNow) 0xFF06281A.toInt() else 0xFFFFFFFF.toInt())
         headerSub.setText(reason ?: R.string.sub_active)
         status.background = GradientDrawable().apply {
@@ -297,11 +311,11 @@ class MainActivity : Activity() {
 
         val lock = isLocked()
         locked.visibility = if (lock) View.VISIBLE else View.GONE
+        // Only shown while blocking is paused (never in strict mode)
+        cardEnabled.visibility = if (!lock && !BlockConfig.isEnabled(this)) View.VISIBLE else View.GONE
         // Can't be changed in strict mode -> don't show at all
-        cardEnabled.visibility = if (lock) View.GONE else View.VISIBLE
         cardSchedule.visibility = if (lock) View.GONE else View.VISIBLE
 
-        swEnabled.isChecked = BlockConfig.isEnabled(this)
         swSchedule.isChecked = BlockConfig.isScheduleEnabled(this)
         scheduleBox.visibility = if (swSchedule.isChecked) View.VISIBLE else View.GONE
         btnStart.text = fmt(BlockConfig.getStart(this))

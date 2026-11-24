@@ -11,7 +11,7 @@
     <string name="status_off">●  Unprotected</string>
     <string name="sub_active">Sites on your list are being blocked</string>
     <string name="sub_service_off">Accessibility service is off</string>
-    <string name="sub_disabled">Blocking is turned off</string>
+    <string name="sub_disabled">Blocking is paused</string>
     <string name="sub_no_sites">No sites on the block list</string>
     <string name="sub_schedule">Outside the scheduled times</string>
     <string name="auth_title">Show blocked sites</string>
@@ -19,8 +19,9 @@
     <string name="service_off_title">Turn on accessibility</string>
     <string name="service_off_desc">SiteBlocker needs the accessibility service to block sites.</string>
     <string name="enable_service">Enable now</string>
-    <string name="blocking_enabled">Blocking</string>
-    <string name="blocking_desc">Master switch for all blocks.</string>
+    <string name="blocking_off_title">Blocking is paused</string>
+    <string name="blocking_off_desc">Nothing is being blocked right now. To pause again later, tap the green status.</string>
+    <string name="turn_on">Turn on</string>
     <string name="sites_header">Blocked sites</string>
     <string name="sites_hint">One per line or separated by commas\ne.g. x.com, youtube.com</string>
     <string name="add">Add to block list</string>
@@ -38,5 +39,5 @@
     <string name="locked_hint">Strict mode is activated – changes are possible once it ends.</string>
     <string name="help">Android 13 and newer: Settings › Apps › SiteBlocker › ⋮ › \"Allow restricted settings\", then enable it here.</string>
     <string name="version_label">Version</string>
-    <string name="version">SiteBlocker 1.7</string>
+    <string name="version">SiteBlocker 1.8</string>
 </resources>
