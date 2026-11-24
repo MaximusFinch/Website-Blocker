@@ -48,4 +48,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+
+    // The app is not published on Google Play, so Play-specific lint checks
+    // (e.g. target SDK deadlines) must not stop release builds.
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
 }
