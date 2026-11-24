@@ -14,7 +14,13 @@ object BlockConfig {
     // ---- Block list ----
     fun getSites(ctx: Context): List<String> =
         (prefs(ctx).getString("sites", "") ?: "")
-            .split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+            .split("\n").map { it.trim() }.filter { isWebsite(it) }
+
+    /** Only real websites (with a dot in the domain) can be blocked; keywords are not supported. */
+    fun isWebsite(entry: String): Boolean {
+        val host = entry.substringBefore('/').substringBefore(':')
+        return host.contains('.') && !host.startsWith('.') && !host.endsWith('.')
+    }
 
     fun setSites(ctx: Context, sites: List<String>) =
         prefs(ctx).edit().putString("sites", sites.joinToString("\n")).apply()
@@ -71,13 +77,12 @@ object BlockConfig {
      * Rules:
      *  - "youtube.com"        -> youtube.com and all subdomains (m.youtube.com ...)
      *  - "reddit.com/r/funny" -> only this path (and below)
-     *  - "casino"             -> keyword (no dot): blocks every URL containing it
      */
     fun matchesRule(url: String, rule: String): Boolean {
         val u = normalize(url)
         val r = normalize(rule)
         if (r.isEmpty() || u.isEmpty()) return false
-        if (!r.contains('.') && !r.contains('/')) return u.contains(r)
+        if (!isWebsite(r)) return false
 
         val hostPart = u.substringBefore('/')
         val host = hostPart.substringBefore(':').substringBefore('?')

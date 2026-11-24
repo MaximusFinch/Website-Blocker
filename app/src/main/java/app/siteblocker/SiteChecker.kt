@@ -61,10 +61,10 @@ object SiteChecker {
         return Report(results, online == false)
     }
 
-    enum class Exists { YES, NO, KEYWORD, UNKNOWN }
+    enum class Exists { YES, NO, UNKNOWN }
 
     /**
-     * Does each entry on the block list still exist? Keywords (no dot) are not checked.
+     * Does each entry on the block list still exist?
      * NO is only returned when the internet clearly works (well-known sites resolve
      * before and after the lookup), so a bad connection never marks a site as dead.
      */
@@ -74,7 +74,7 @@ object SiteChecker {
         for (entry in entries) {
             val host = hostOf(entry)
             result[entry] = when {
-                host == null -> Exists.KEYWORD
+                host == null -> Exists.NO
                 resolves(host) -> Exists.YES
                 else -> {
                     if (online == null) online = isOnline()

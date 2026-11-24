@@ -429,7 +429,7 @@ class MainActivity : Activity() {
                 ).apply { topMargin = dp(8) }
             }
             // Dot: green = site exists, red = site doesn't exist (can always be removed),
-            // orange = keyword, grey = not checked yet / no internet
+            // grey = not checked yet / no internet
             val exists = existence[site]
             val dead = exists == SiteChecker.Exists.NO
             row.addView(View(this).apply {
@@ -439,7 +439,6 @@ class MainActivity : Activity() {
                         when (exists) {
                             SiteChecker.Exists.YES -> getColor(R.color.success)
                             SiteChecker.Exists.NO -> getColor(R.color.danger)
-                            SiteChecker.Exists.KEYWORD -> getColor(R.color.accent)
                             else -> getColor(R.color.text_hint)
                         }
                     )
@@ -480,6 +479,12 @@ class MainActivity : Activity() {
             .filter { it.isNotEmpty() }
             .distinct()
         if (entries.isEmpty()) return
+        // Keywords are not supported: only real websites like youtube.com
+        val notSites = entries.filterNot { BlockConfig.isWebsite(it) }
+        if (notSites.isNotEmpty()) {
+            toast("Not a website: ${notSites.joinToString(", ")} – enter e.g. ${notSites.first()}.com")
+            return
+        }
         val newOnes = entries.filter { e -> existing.none { it.equals(e, true) } }
         if (newOnes.isEmpty()) { toast("Already on the list"); return }
 

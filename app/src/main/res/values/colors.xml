@@ -4,6 +4,8 @@
     <color name="surface">#1A1A1A</color>
     <color name="surface2">#262626</color>
     <color name="stroke">#575757</color>
+    <!-- Outline of the boxes (cards and input): light so they stand out on dim screens -->
+    <color name="card_stroke">#B3B3B3</color>
     <color name="accent">#FF7A1A</color>
     <color name="accent2">#FFA24D</color>
     <color name="accent_dark">#B84A00</color>
