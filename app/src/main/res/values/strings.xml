@@ -6,6 +6,7 @@
     <string name="blocked_title">This site is blocked</string>
     <string name="blocked_hint">You decided you don\'t want to be here right now. Good call.</string>
     <string name="go_home">Go to home screen</string>
+    <string name="closing_tab">Closing tab…</string>
 
     <string name="status_ok">●  Protection on</string>
     <string name="status_off">●  Unprotected</string>
@@ -39,5 +40,5 @@
     <string name="locked_hint">Strict mode is activated – changes are possible once it ends.</string>
     <string name="help">Android 13 and newer: Settings › Apps › WebBlock › ⋮ › \"Allow restricted settings\", then enable it here.</string>
     <string name="version_label">Version</string>
-    <string name="version">WebBlock 1.11</string>
+    <string name="version">WebBlock 1.12</string>
 </resources>

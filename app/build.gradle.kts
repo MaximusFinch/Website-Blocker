@@ -11,8 +11,8 @@ android {
         applicationId = "app.siteblocker"
         minSdk = 24
         targetSdk = 34
-        versionCode = 12
-        versionName = "1.11"
+        versionCode = 13
+        versionName = "1.12"
     }
 
     // The signing key is NOT stored in this repository. The build reads it from

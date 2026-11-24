@@ -102,8 +102,14 @@ class BlockerService : AccessibilityService() {
         "tab_button", "tabs_button",          // Samsung Internet, others
     )
 
-    /** Menu entry texts in English and German. */
-    private val closeTabTexts = listOf("close tab", "tab schließen", "tab schliessen", "close this tab")
+    /**
+     * Menu entry texts. German Chrome calls it just "Schließen" in the
+     * long-press menu of the tab button, English Chrome "Close tab".
+     */
+    private val closeTabTexts = listOf(
+        "close tab", "close", "close this tab",
+        "tab schließen", "tab schliessen", "schließen", "schliessen",
+    )
 
     /** What happened during the last attempt, shown in the app for troubleshooting. */
     private val closeLog = StringBuilder()
@@ -115,51 +121,64 @@ class BlockerService : AccessibilityService() {
     }
 
     /**
-     * Closes the browser tab that shows the blocked site:
+     * Number of the current closing run. Hiding the block screen increases it,
+     * so steps still waiting from an older run notice it and do nothing.
+     */
+    private var closeRun = 0
+
+    private fun isCurrent(run: Int) = run == closeRun && overlay != null
+
+    /**
+     * Closes the browser tab that shows the blocked site, then goes to the
+     * home screen by itself:
      * 1. Link opened from another app (Custom Tab): tap its X button.
-     * 2. Normal tab: long press on the tab button and tap "Close tab" in the menu.
+     * 2. Normal tab: long press on the tab button and tap "Close tab" / "Schließen".
      *    First as an accessibility action, then as a real long-press gesture.
      * 3. If nothing works: go back so the blocked page is at least left.
      */
     private fun closeTab(root: AccessibilityNodeInfo, pkg: String) {
+        val run = ++closeRun
         closeLog.setLength(0)
         log(pkg)
+        setClosingUi(true)
 
         root.findAccessibilityNodeInfosByViewId("$pkg:id/close_button")?.firstOrNull()?.let {
             val ok = clickNodeOrParent(it)
             log("custom tab X: $ok")
-            if (ok) return
+            if (ok) { finish(run); return }
         }
 
         val tabButton = findTabButton(root, pkg)
         if (tabButton == null) {
             log("no tab button")
-            goBack()
+            fallback(run)
             return
         }
         log("tab button: " + (tabButton.viewIdResourceName?.substringAfter('/') ?: tabButton.contentDescription))
         log("long click: " + tabButton.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK))
 
-        waitForCloseItem(8) { found ->
-            if (found) return@waitForCloseItem
+        waitForCloseItem(run, 12) { found ->
+            if (found) { finish(run); return@waitForCloseItem }
             // Second try: a real long press on the button
             val bounds = Rect()
             tabButton.refresh()
             tabButton.getBoundsInScreen(bounds)
             log("gesture")
-            pressAt(bounds, 700) {
-                waitForCloseItem(10) { found2 ->
-                    if (!found2) {
+            pressAt(bounds, 600) {
+                waitForCloseItem(run, 12) { found2 ->
+                    if (found2) finish(run)
+                    else {
                         log("menu not found, seen: " + visibleTexts())
-                        goBack()
+                        fallback(run)
                     }
                 }
             }
         }
     }
 
-    /** Looks for the "Close tab" entry for a while and taps it. */
-    private fun waitForCloseItem(tries: Int, onDone: (Boolean) -> Unit) {
+    /** Looks for the "Close tab" entry for up to about a second and taps it. */
+    private fun waitForCloseItem(run: Int, tries: Int, onDone: (Boolean) -> Unit) {
+        if (!isCurrent(run)) return
         val item = findCloseItem()
         if (item != null) {
             val ok = clickNodeOrParent(item)
@@ -173,12 +192,34 @@ class BlockerService : AccessibilityService() {
             return
         }
         if (tries <= 0) { onDone(false); return }
-        handler.postDelayed({ waitForCloseItem(tries - 1, onDone) }, 150)
+        handler.postDelayed({ waitForCloseItem(run, tries - 1, onDone) }, 80)
     }
 
-    private fun goBack() {
+    /** Closing didn't work: close a possibly open menu and leave the page. */
+    private fun fallback(run: Int) {
+        if (!isCurrent(run)) return
         performGlobalAction(GLOBAL_ACTION_BACK)
-        handler.postDelayed({ performGlobalAction(GLOBAL_ACTION_BACK) }, 250)
+        handler.postDelayed({
+            if (isCurrent(run)) performGlobalAction(GLOBAL_ACTION_BACK)
+            finish(run)
+        }, 200)
+    }
+
+    /** Tab is closed: go to the home screen and remove the block screen. */
+    private fun finish(run: Int) {
+        handler.postDelayed({
+            if (!isCurrent(run)) return@postDelayed
+            log("done")
+            performGlobalAction(GLOBAL_ACTION_HOME)
+            handler.postDelayed({ if (run == closeRun) hideOverlay() }, 300)
+        }, 250)
+    }
+
+    /** While closing, the button shows what is happening and can't be tapped. */
+    private fun setClosingUi(closing: Boolean) {
+        val btn = overlay?.findViewById<Button>(R.id.btn_home) ?: return
+        btn.isEnabled = !closing
+        btn.setText(if (closing) R.string.closing_tab else R.string.go_home)
     }
 
     private fun findTabButton(root: AccessibilityNodeInfo, pkg: String): AccessibilityNodeInfo? {
@@ -313,6 +354,7 @@ class BlockerService : AccessibilityService() {
 
     private fun hideOverlay() {
         sticky = false
+        closeRun++   // stops any closing steps that are still waiting
         val view = overlay ?: return
         overlay = null
         try { wm.removeView(view) } catch (_: Exception) {}
@@ -321,7 +363,8 @@ class BlockerService : AccessibilityService() {
     /** "Go to home screen" (the tab has already been closed). */
     private fun leave() {
         performGlobalAction(GLOBAL_ACTION_HOME)
-        handler.postDelayed({ hideOverlay() }, 250)
+        val run = closeRun
+        handler.postDelayed({ if (run == closeRun) hideOverlay() }, 250)
     }
 
     // ---------- Reading the URL ----------
