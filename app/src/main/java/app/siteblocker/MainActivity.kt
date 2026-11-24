@@ -51,7 +51,6 @@ class MainActivity : Activity() {
     private var listUnlocked = false
     private var onAuthResult: (() -> Unit)? = null
     private lateinit var btnAdd: Button
-    private lateinit var tabLog: TextView
     private lateinit var serviceCard: View
     private lateinit var btnService: Button
     private lateinit var locked: TextView
@@ -122,7 +121,6 @@ class MainActivity : Activity() {
         btnEnd = findViewById(R.id.btn_end)
         daysBox = findViewById(R.id.days)
         strictStatus = findViewById(R.id.strict_status)
-        tabLog = findViewById(R.id.tab_log)
         btnStrict = findViewById(R.id.btn_strict)
 
         btnService.setOnClickListener {
@@ -356,10 +354,6 @@ class MainActivity : Activity() {
 
         renderSites(lock)
 
-        // Temporary: shows how closing the last blocked tab went
-        val log = BlockConfig.getTabLog(this)
-        tabLog.visibility = if (log.isEmpty()) View.GONE else View.VISIBLE
-        tabLog.text = "Last tab close:\n$log"
         binding = false
     }
 

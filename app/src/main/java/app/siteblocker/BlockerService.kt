@@ -32,6 +32,8 @@ class BlockerService : AccessibilityService() {
      * even though the browser no longer shows the blocked address.
      */
     private var sticky = false
+    /** Browser that showed the blocked site; its tab is closed when "Go to home screen" is tapped. */
+    private var blockedPkg: String? = null
     private val handler = Handler(Looper.getMainLooper())
     private val wm by lazy { getSystemService(WINDOW_SERVICE) as WindowManager }
 
@@ -87,8 +89,9 @@ class BlockerService : AccessibilityService() {
         val isNew = overlay == null
         showOverlay(url, rule)
         if (isNew && overlay != null) {
+            // Keep the block screen until the button is tapped; the tab is closed then
             sticky = true
-            closeTab(root, pkg)
+            blockedPkg = pkg
         }
     }
 
@@ -111,13 +114,13 @@ class BlockerService : AccessibilityService() {
         "tab schließen", "tab schliessen", "schließen", "schliessen",
     )
 
-    /** What happened during the last attempt, shown in the app for troubleshooting. */
+    /** What happened during the last attempt (written to logcat for troubleshooting). */
     private val closeLog = StringBuilder()
 
     private fun log(step: String) {
         if (closeLog.isNotEmpty()) closeLog.append("  ·  ")
         closeLog.append(step)
-        BlockConfig.setTabLog(this, closeLog.toString())
+        android.util.Log.d("WebBlock", "tab close: $closeLog")
     }
 
     /**
@@ -333,7 +336,7 @@ class BlockerService : AccessibilityService() {
     private fun createOverlay(): View? {
         val view = LayoutInflater.from(ContextThemeWrapper(this, R.style.BlockedTheme))
             .inflate(R.layout.activity_blocked, null)
-        view.findViewById<Button>(R.id.btn_home).setOnClickListener { leave() }
+        view.findViewById<Button>(R.id.btn_home).setOnClickListener { onHomeTapped() }
 
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -361,6 +364,14 @@ class BlockerService : AccessibilityService() {
     }
 
     /** "Go to home screen" (the tab has already been closed). */
+    /** "Go to home screen": close the tab of the blocked site first, then go home. */
+    private fun onHomeTapped() {
+        val pkg = blockedPkg
+        val root = pkg?.let { p -> browserRoots().firstOrNull { it.packageName?.toString() == p } }
+        if (pkg == null || root == null) { leave(); return }
+        closeTab(root, pkg)
+    }
+
     private fun leave() {
         performGlobalAction(GLOBAL_ACTION_HOME)
         val run = closeRun

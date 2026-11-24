@@ -309,18 +309,5 @@
             android:textColor="@color/text_hint"
             android:textSize="12sp" />
 
-        <!-- Troubleshooting: result of the last attempt to close a browser tab -->
-        <TextView
-            android:id="@+id/tab_log"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:background="@drawable/bg_tile"
-            android:fontFamily="monospace"
-            android:padding="12dp"
-            android:textColor="@color/text_dim"
-            android:textIsSelectable="true"
-            android:textSize="11sp"
-            android:visibility="gone" />
     </LinearLayout>
 </ScrollView>
