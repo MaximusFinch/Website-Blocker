@@ -1,0 +1,48 @@
+name: CodeQL
+
+# Automatic security check of the Kotlin code.
+# Runs on every push to main, on pull requests and once a week (new rules).
+# Results: GitHub > Security > Code scanning.
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  schedule:
+    - cron: "17 4 * * 1"   # Mondays 04:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write   # upload the results
+  actions: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+          cache-disabled: true   # CodeQL has to see the full compilation
+
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: java-kotlin
+          build-mode: manual
+          queries: security-extended
+
+      # Debug build: needs no signing key, so no secrets are used here
+      - name: Build
+        run: gradle assembleDebug --no-daemon --no-build-cache --rerun-tasks
+
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:java-kotlin"
