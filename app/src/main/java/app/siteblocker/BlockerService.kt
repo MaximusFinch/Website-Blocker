@@ -7,6 +7,7 @@ import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.ContextThemeWrapper
 import android.view.LayoutInflater
 import android.view.View
@@ -15,6 +16,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Button
 import android.widget.TextView
+import android.widget.Toast
 
 /**
  * Accessibility service: reads the address bar of known browsers and covers
@@ -68,6 +70,7 @@ class BlockerService : AccessibilityService() {
         if (pkg == packageName) return
 
         if (pkg !in urlBarIds) {
+            if (guardSettings(pkg)) return
             // Another app came to the front (e.g. home screen) -> remove the overlay
             if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
                 pkg != "com.android.systemui" && !pkg.contains("inputmethod") && !pkg.contains("keyboard")
@@ -93,6 +96,41 @@ class BlockerService : AccessibilityService() {
             sticky = true
             blockedPkg = pkg
         }
+    }
+
+    // ---------- Alpha mode protection ----------
+
+    private var lastGuardToast = 0L
+
+    /** System screens that could turn WebBlock off: settings, app info, uninstall dialogs. */
+    private fun isGuardedApp(pkg: String) =
+        pkg != "com.android.systemui" && (
+            pkg.contains("settings") || pkg.contains("packageinstaller") ||
+                pkg.contains("permissioncontroller") || pkg == "com.miui.securitycenter"
+            )
+
+    /**
+     * While Alpha mode is on, a settings or uninstall screen that shows WebBlock
+     * (accessibility switch, app info with force stop / clear data / uninstall,
+     * uninstall dialog) is closed right away by going to the home screen.
+     * Returns true when it did that.
+     */
+    private fun guardSettings(pkg: String): Boolean {
+        if (!isGuardedApp(pkg)) return false
+        if (!BlockConfig.isStrictLocked(this)) return false
+        val root = rootInActiveWindow ?: return false
+        if (root.packageName?.toString() != pkg) return false
+        val name = getString(R.string.app_name)
+        val hits = root.findAccessibilityNodeInfosByText(name)
+        if (hits.isNullOrEmpty()) return false
+
+        performGlobalAction(GLOBAL_ACTION_HOME)
+        val now = SystemClock.uptimeMillis()
+        if (now - lastGuardToast > 3000) {
+            lastGuardToast = now
+            Toast.makeText(this, R.string.guard_hint, Toast.LENGTH_LONG).show()
+        }
+        return true
     }
 
     // ---------- Closing the tab ----------

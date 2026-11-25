@@ -38,9 +38,10 @@
     <string name="strict_start">Start Alpha mode</string>
     <string name="strict_extend">Extend</string>
     <string name="strict_off">Off</string>
-    <string name="strict_desc">Until the time you choose, you can\'t remove sites, change the schedule or turn blocking off. You can always extend it and add new sites.</string>
+    <string name="strict_desc">Until the time you choose, you can\'t remove sites, change the schedule, turn blocking off, or turn off or uninstall WebBlock in the settings. Changing the date or time doesn\'t end it early. You can always extend it and add new sites.</string>
+    <string name="guard_hint">Alpha mode is active – WebBlock can\'t be turned off or uninstalled until it ends.</string>
     <string name="locked_hint">Alpha mode is activated – changes are possible once it ends.</string>
     <string name="help">Android 13 and newer: Settings › Apps › WebBlock › ⋮ › \"Allow restricted settings\", then enable it here.</string>
     <string name="version_label">Version</string>
-    <string name="version">WebBlock 1.18</string>
+    <string name="version">WebBlock 1.19</string>
 </resources>

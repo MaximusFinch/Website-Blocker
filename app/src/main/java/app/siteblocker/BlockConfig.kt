@@ -2,6 +2,8 @@ package app.siteblocker
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.SystemClock
+import android.provider.Settings
 import java.util.Calendar
 
 /** All app settings plus the logic that decides whether a URL is blocked. */
@@ -29,10 +31,69 @@ object BlockConfig {
     fun isEnabled(ctx: Context) = prefs(ctx).getBoolean("enabled", true)
     fun setEnabled(ctx: Context, v: Boolean) = prefs(ctx).edit().putBoolean("enabled", v).apply()
 
-    // ---- Strict mode: locked until a point in time (milliseconds, 0 = off) ----
-    fun getStrictUntil(ctx: Context) = prefs(ctx).getLong("strict_until", 0L)
-    fun setStrictUntil(ctx: Context, v: Long) = prefs(ctx).edit().putLong("strict_until", v).apply()
-    fun isStrictLocked(ctx: Context) = getStrictUntil(ctx) > System.currentTimeMillis()
+    // ---- Alpha mode (stored as "strict"): locked for a chosen time ----
+    //
+    // The remaining time is counted down with the phone's uptime clock
+    // (SystemClock.elapsedRealtime), not with the date/time setting, so moving the
+    // clock forward can't end Alpha mode early. After a restart the uptime clock
+    // starts again at 0; the time the phone was off then only counts when Android
+    // takes the time from the network ("Set time automatically").
+
+    /** End of Alpha mode in wall-clock time (for display), 0 = never started. */
+    fun getStrictUntil(ctx: Context): Long {
+        tick(ctx)
+        return prefs(ctx).getLong("strict_until", 0L)
+    }
+
+    fun setStrictUntil(ctx: Context, v: Long) {
+        val now = System.currentTimeMillis()
+        prefs(ctx).edit()
+            .putLong("strict_until", v)
+            .putLong("strict_remaining", (v - now).coerceAtLeast(0L))
+            .putLong("strict_elapsed", SystemClock.elapsedRealtime())
+            .putLong("strict_wall", now)
+            .putInt("strict_boot", bootCount(ctx))
+            .commit()
+    }
+
+    fun isStrictLocked(ctx: Context): Boolean {
+        tick(ctx)
+        return prefs(ctx).getLong("strict_remaining", 0L) > 0L
+    }
+
+    @Synchronized
+    private fun tick(ctx: Context) {
+        val p = prefs(ctx)
+        val until = p.getLong("strict_until", 0L)
+        if (until == 0L) return
+        if (!p.contains("strict_remaining")) { setStrictUntil(ctx, until); return } // set by version ≤ 1.18
+        var remaining = p.getLong("strict_remaining", 0L)
+        if (remaining <= 0L) return
+
+        val now = System.currentTimeMillis()
+        val elapsed = SystemClock.elapsedRealtime()
+        val boot = bootCount(ctx)
+        val lastElapsed = p.getLong("strict_elapsed", elapsed)
+        val passed = when {
+            boot == p.getInt("strict_boot", boot) && elapsed >= lastElapsed -> elapsed - lastElapsed
+            autoTime(ctx) -> (now - p.getLong("strict_wall", now)).coerceAtLeast(0L)
+            else -> elapsed // restarted and clock set by hand: only count the time since the restart
+        }
+        remaining = (remaining - passed).coerceAtLeast(0L)
+        p.edit()
+            .putLong("strict_remaining", remaining)
+            .putLong("strict_until", now + remaining)
+            .putLong("strict_elapsed", elapsed)
+            .putLong("strict_wall", now)
+            .putInt("strict_boot", boot)
+            .apply()
+    }
+
+    private fun bootCount(ctx: Context) =
+        Settings.Global.getInt(ctx.contentResolver, Settings.Global.BOOT_COUNT, -1)
+
+    private fun autoTime(ctx: Context) =
+        Settings.Global.getInt(ctx.contentResolver, Settings.Global.AUTO_TIME, 0) == 1
 
     // ---- Schedule ----
     fun isScheduleEnabled(ctx: Context) = prefs(ctx).getBoolean("schedule", false)

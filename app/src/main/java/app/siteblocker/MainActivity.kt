@@ -654,8 +654,8 @@ class MainActivity : Activity() {
             .setTitle(R.string.strict_header)
             .setMessage(
                 "Alpha mode until ${dateFmt.format(Date(end))}\n(${remaining(end)})\n\n" +
-                    "Until then you can't remove sites, change the schedule " +
-                    "or turn blocking off. This cannot be undone."
+                    "Until then you can't remove sites, change the schedule, turn blocking off, " +
+                    "or turn off or uninstall WebBlock in the settings. This cannot be undone."
             )
             .setPositiveButton("Start") { _, _ ->
                 BlockConfig.setEnabled(this, true)
