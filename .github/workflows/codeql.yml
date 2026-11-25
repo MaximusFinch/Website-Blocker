@@ -41,7 +41,15 @@ jobs:
 
       # Debug build: needs no signing key, so no secrets are used here
       - name: Build
-        run: gradle assembleDebug --no-daemon --no-build-cache --rerun-tasks
+        run: |
+          set -o pipefail
+          if ! gradle assembleDebug --no-daemon --no-build-cache --rerun-tasks 2>&1 | tee build.log; then
+            # Show the reason as annotations (visible without opening the log)
+            grep -E "^e: |error:|What went wrong|FAILED|Exception|> " build.log | head -10 | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            exit 1
+          fi
 
       - uses: github/codeql-action/analyze@v4
         with:
