@@ -30,6 +30,8 @@ actual traffic never goes through it, and nothing is sent to any other server.
 - Video ads on YouTube come from the same servers as the videos, so they can't be blocked this way.
 - If "Private DNS" in the Android settings is set to a specific provider, lookups bypass the ad blocker.
 - Not affected by Alpha mode – it can always be switched on and off.
+- Fast: blocked lookups are answered instantly, other answers are cached for as long as the DNS
+  server allows, and a second DNS server is asked if the first one doesn't answer within 1 s.
 
 ## Privacy
 
