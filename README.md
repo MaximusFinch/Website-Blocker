@@ -12,7 +12,7 @@ Android app that blocks distracting websites and apps – and ads and trackers i
 - Block apps too: pick installed apps and put them on either list
 - Ad blocker for all apps and browsers (optional, off by default)
 - Schedule with times and days of the week
-- Alpha mode: locks your settings until a chosen date and time; WebBlock can't be turned off or uninstalled meanwhile, and changing the clock doesn't end it early
+- Alpha mode: locks your settings until a chosen date and time; WebBlock can't be turned off or uninstalled meanwhile, and changing the clock doesn't end it early (lists like battery usage or all apps stay open; only WebBlock's own settings pages are closed)
 - Green dot = site exists, red dot = site not found (can be removed even in Alpha mode)
 - Runs in the background, also after a restart
 - Two pages with a tab bar (swipe to switch): **Blocker** and **Ad blocker**, each with a big

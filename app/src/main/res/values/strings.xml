@@ -73,5 +73,5 @@
     <string name="top_desc">The ad and tracker addresses your apps asked for most often.</string>
     <string name="filter_title">How it works</string>
     <string name="version_label">Version</string>
-    <string name="version">WebBlock 1.28</string>
+    <string name="version">WebBlock 1.29</string>
 </resources>

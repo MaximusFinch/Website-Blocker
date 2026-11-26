@@ -213,6 +213,10 @@ class BlockerService : AccessibilityService() {
         if (hits.isNullOrEmpty()) return false
         // Package installer: installing an update is fine, only the uninstall dialog is closed
         if (pkg.contains("packageinstaller") && !isUninstallScreen(root, className)) return false
+        // Lists where WebBlock is just one app among others (battery usage, all apps,
+        // accessibility overview) can't turn it off. Tapping WebBlock there opens its
+        // own page, which is checked again.
+        if (!pkg.contains("packageinstaller") && isHarmlessList(root, hits)) return false
 
         performGlobalAction(GLOBAL_ACTION_HOME)
         val now = SystemClock.uptimeMillis()
@@ -221,6 +225,54 @@ class BlockerService : AccessibilityService() {
             Toast.makeText(this, R.string.guard_hint, Toast.LENGTH_LONG).show()
         }
         return true
+    }
+
+    /**
+     * Words on controls that could stop WebBlock (force stop, uninstall, disable,
+     * clear data, remove) in common languages. If any of them is on the screen, it's
+     * never treated as a harmless list.
+     */
+    private val dangerWords = listOf(
+        "stop", "uninstall", "deinstall", "disable", "deaktiv", "clear", "lösch", "leeren",
+        "beenden", "remove", "entfern", "désactiv", "forcer", "effacer", "desactiv", "forzar",
+        "borrar", "disattiv", "arresta", "cancella", "durdur", "kaldır", "verwijder", "uitschakel",
+    )
+
+    /** Switches, check boxes and radio buttons (e.g. the accessibility switch, battery restriction). */
+    private val toggleClasses = listOf("Switch", "Toggle", "CheckBox", "RadioButton")
+
+    /**
+     * True when WebBlock is only one row of a list of apps and nothing on the screen
+     * could turn it off: no switch and no button like "Force stop" or "Uninstall".
+     */
+    private fun isHarmlessList(root: AccessibilityNodeInfo, hits: List<AccessibilityNodeInfo>): Boolean {
+        if (hits.none { rowsAround(it) >= 4 }) return false
+        var danger = false
+        fun scan(n: AccessibilityNodeInfo?, depth: Int) {
+            if (n == null || danger || depth > 25) return
+            val cls = n.className?.toString() ?: ""
+            if (toggleClasses.any { cls.contains(it) }) { danger = true; return }
+            val t = "${n.text ?: ""} ${n.contentDescription ?: ""}".lowercase()
+            if (dangerWords.any { it in t }) { danger = true; return }
+            for (i in 0 until n.childCount) scan(n.getChild(i), depth + 1)
+        }
+        scan(root, 0)
+        return !danger
+    }
+
+    /** Number of rows in the list that contains [node], 0 if it isn't in a list. */
+    private fun rowsAround(node: AccessibilityNodeInfo): Int {
+        var p = node.parent
+        var depth = 0
+        while (p != null && depth < 10) {
+            val rows = p.collectionInfo?.rowCount ?: -1
+            if (rows > 1) return rows
+            val cls = p.className?.toString() ?: ""
+            if (cls.contains("RecyclerView") || cls.contains("ListView")) return p.childCount
+            p = p.parent
+            depth++
+        }
+        return 0
     }
 
     /** Words in uninstall dialogs ("Do you want to uninstall this app?", "deinstallieren", …). */
