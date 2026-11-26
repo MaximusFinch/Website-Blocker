@@ -1,10 +1,11 @@
-WebBlock blocks websites on your Android phone – in Chrome, Firefox, Samsung Internet, Brave, Edge, Opera, DuckDuckGo and other browsers.
+WebBlock blocks distracting websites and apps on your Android phone – in Chrome, Firefox, Samsung Internet, Brave, Edge, Opera, DuckDuckGo and other browsers – and can block ads and trackers in every app.
 
 ### Features
 - Block whole sites or single sections (reddit.com/r/all)
 - Closes the browser tab of a blocked site
 - Two lists: "Always" (blocked 24/7, protected by Alpha mode) and "On schedule" (follows the schedule, always changeable)
 - Block apps too: pick installed apps and put them on either list
+- Ad blocker for all apps (optional): filters ad and tracker domains with the StevenBlack list; turns off with a notification when another VPN like NordVPN starts
 - Schedule with times and days of the week
 - Alpha mode: locks your settings until a chosen date and time; WebBlock can't be turned off or uninstalled meanwhile, and changing the clock doesn't end it early
 - Green dot = site exists, red dot = site not found (can be removed even in Alpha mode)

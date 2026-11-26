@@ -51,6 +51,13 @@
     <string name="guard_hint">Alpha mode is active – WebBlock can\'t be turned off or uninstalled until it ends.</string>
     <string name="locked_hint">Alpha mode is activated – changes are possible once it ends.</string>
     <string name="help">Android 13 and newer: Settings › Apps › WebBlock › ⋮ › \"Allow restricted settings\", then enable it here.</string>
+    <string name="stat_sites">Sites</string>
+    <string name="stat_apps">Apps</string>
+    <string name="stat_ads">Ads today</string>
+    <string name="adblock_title">Ad blocker</string>
+    <string name="adblock_desc">Blocks ads and trackers in all apps and browsers by filtering the addresses they look up. Video ads on YouTube can\'t be blocked this way.</string>
+    <string name="adblock_note">Uses Android\'s VPN slot, but nothing leaves your phone through it. Only one VPN can run at a time: if you start another one (e.g. NordVPN), the ad blocker turns off and a notification lets you turn it back on. Not affected by Alpha mode.</string>
+    <string name="adblock_update">Update list now</string>
     <string name="version_label">Version</string>
-    <string name="version">WebBlock 1.23</string>
+    <string name="version">WebBlock 1.24</string>
 </resources>

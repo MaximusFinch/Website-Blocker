@@ -65,6 +65,14 @@ class BlockerService : AccessibilityService() {
         "com.android.browser" to listOf("url"),
     )
 
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        // Runs after a restart too: bring the ad blocker back if it should be on
+        if (AdBlockService.isEnabled(this) && !AdBlockService.running &&
+            android.net.VpnService.prepare(this) == null
+        ) try { AdBlockService.start(this) } catch (_: Exception) {}
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val pkg = event?.packageName?.toString() ?: return
         if (pkg == packageName) return

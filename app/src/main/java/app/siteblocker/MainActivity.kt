@@ -1,5 +1,6 @@
 package app.siteblocker
 
+import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
 import android.app.DatePickerDialog
@@ -7,12 +8,14 @@ import android.app.KeyguardManager
 import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.hardware.biometrics.BiometricManager
 import android.hardware.biometrics.BiometricPrompt
+import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
 import android.os.CancellationSignal
@@ -44,6 +47,12 @@ class MainActivity : Activity() {
 
     private lateinit var status: TextView
     private lateinit var headerSub: TextView
+    private lateinit var statSites: TextView
+    private lateinit var statApps: TextView
+    private lateinit var statAds: TextView
+    private lateinit var swAdblock: Switch
+    private lateinit var adblockStatus: TextView
+    private lateinit var btnAdblockUpdate: Button
     private lateinit var headerIcon: View
     private lateinit var cardEnabled: View
     private lateinit var cardSchedule: View
@@ -108,6 +117,12 @@ class MainActivity : Activity() {
 
         status = findViewById(R.id.status)
         headerSub = findViewById(R.id.header_sub)
+        statSites = findViewById(R.id.stat_sites)
+        statApps = findViewById(R.id.stat_apps)
+        statAds = findViewById(R.id.stat_ads)
+        swAdblock = findViewById(R.id.sw_adblock)
+        adblockStatus = findViewById(R.id.adblock_status)
+        btnAdblockUpdate = findViewById(R.id.btn_adblock_update)
         headerIcon = findViewById(R.id.header_icon)
         cardEnabled = findViewById(R.id.card_enabled)
         cardSchedule = findViewById(R.id.card_schedule)
@@ -201,16 +216,55 @@ class MainActivity : Activity() {
 
         btnStrict.setOnClickListener { pickStrictEnd() }
 
+        // Ad blocker: can always be switched, also in Alpha mode
+        swAdblock.setOnCheckedChangeListener { _, on ->
+            if (binding) return@setOnCheckedChangeListener
+            if (on) enableAdBlock()
+            else {
+                AdBlockService.setEnabled(this, false)
+                try { AdBlockService.stop(this) } catch (_: Exception) {}
+                refresh()
+            }
+        }
+        btnAdblockUpdate.setOnClickListener { updateAdList() }
+        findViewById<View>(R.id.stat_ads).setOnClickListener {
+            findViewById<android.widget.ScrollView>(R.id.scroll)
+                .smoothScrollTo(0, findViewById<View>(R.id.card_adblock).top)
+        }
+
         // Alpha mode status: explains the lock while active, otherwise jumps to its card
         alphaStatus.setOnClickListener {
             if (isLocked()) denied()
             else findViewById<android.widget.ScrollView>(R.id.scroll)
                 .smoothScrollTo(0, findViewById<View>(R.id.card_alpha).top)
         }
+
+        // Opened from the "Ad blocker turned off" notification
+        if (savedInstanceState == null) handleIntent()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent()
+    }
+
+    private fun handleIntent() {
+        if (intent?.action != AdBlockService.ACTION_ENABLE) return
+        setIntent(Intent(this, MainActivity::class.java))
+        enableAdBlock()
     }
 
     override fun onResume() {
         super.onResume()
+        // Ad blocker should be on but isn't running (e.g. Android stopped it): start it again
+        if (AdBlockService.isEnabled(this) && !AdBlockService.running) {
+            if (VpnService.prepare(this) == null) {
+                try { AdBlockService.start(this) } catch (_: Exception) {}
+            } else {
+                AdBlockService.setEnabled(this, false)   // another VPN app has the slot now
+            }
+        }
         handler.post(ticker)
     }
 
@@ -277,12 +331,76 @@ class MainActivity : Activity() {
         }
     }
 
-    @Deprecated("Only used on Android 9 and older")
+    @Deprecated("Screen lock on Android 9 and older, VPN permission for the ad blocker")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         @Suppress("DEPRECATION")
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQ_VPN) {
+            if (resultCode == RESULT_OK) onVpnAllowed()
+            else { toast("The ad blocker needs the VPN permission to work.", long = true); refresh() }
+            return
+        }
         if (requestCode == REQ_AUTH && resultCode == RESULT_OK) onAuthResult?.invoke()
         onAuthResult = null
+    }
+
+    // ---------- Ad blocker ----------
+
+    /** Asks Android for the VPN permission (only the first time), then starts the ad blocker. */
+    private fun enableAdBlock() {
+        val consent = try { VpnService.prepare(this) } catch (_: Exception) { null }
+        if (consent != null) {
+            refresh()   // switch stays off until the permission is given
+            @Suppress("DEPRECATION")
+            startActivityForResult(consent, REQ_VPN)
+            return
+        }
+        onVpnAllowed()
+    }
+
+    private fun onVpnAllowed() {
+        AdBlockService.setEnabled(this, true)
+        try { AdBlockService.start(this) } catch (_: Exception) {}
+        // For the "turned off by another VPN" notification
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIF)
+        refresh()
+        // The list is downloaded the first time: show the result once it's there
+        if (AdBlockList.count(this) == 0) {
+            for (delay in listOf(3_000L, 8_000L, 15_000L, 30_000L)) handler.postDelayed({ refresh() }, delay)
+        }
+    }
+
+    private fun updateAdList() {
+        btnAdblockUpdate.isEnabled = false
+        btnAdblockUpdate.text = "Downloading…"
+        Thread {
+            val n = try { AdBlockList.download(this) } catch (_: Exception) { -1 }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                btnAdblockUpdate.isEnabled = true
+                btnAdblockUpdate.setText(R.string.adblock_update)
+                toast(
+                    if (n < 0) "Couldn't download the list – check your internet connection."
+                    else "List updated: ${num(n)} ad & tracker domains",
+                    long = true,
+                )
+                refresh()
+            }
+        }.start()
+    }
+
+    private fun num(n: Int) = String.format(Locale.ENGLISH, "%,d", n)
+
+    /** "today", "yesterday", "3 days ago". */
+    private fun ago(time: Long): String {
+        val days = ((System.currentTimeMillis() - time) / 86_400_000L).toInt()
+        return when {
+            days <= 0 -> "today"
+            days == 1 -> "yesterday"
+            else -> "$days days ago"
+        }
     }
 
     private fun isLocked() = BlockConfig.isStrictLocked(this)
@@ -325,7 +443,7 @@ class MainActivity : Activity() {
             setSpan(ForegroundColorSpan(statusColor), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             if (canPause) {
                 val start = length
-                append("     ❚❚")
+                append("   ❚❚")
                 setSpan(ForegroundColorSpan(0xB3FFFFFF.toInt()), start, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 setSpan(RelativeSizeSpan(0.75f), start, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
@@ -380,6 +498,24 @@ class MainActivity : Activity() {
         }
 
         renderLists(lock)
+
+        // Header numbers
+        statSites.text = (BlockConfig.getSites(this, true).size + BlockConfig.getSites(this, false).size).toString()
+        statApps.text = (BlockConfig.getApps(this, true).size + BlockConfig.getApps(this, false).size).toString()
+        val adOn = AdBlockService.isEnabled(this)
+        statAds.text = if (adOn) num(AdBlockService.blockedToday(this)) else "Off"
+
+        // Ad blocker card
+        swAdblock.isChecked = adOn
+        val domains = AdBlockList.count(this)
+        adblockStatus.text = when {
+            !adOn -> "●  Off"
+            domains == 0 -> "●  On – downloading the filter list…"
+            else -> "●  On · ${num(domains)} ad & tracker domains\n" +
+                "      ${num(AdBlockService.blockedToday(this))} blocked today · list from ${ago(AdBlockList.lastUpdate(this))}"
+        }
+        adblockStatus.setTextColor(getColor(if (adOn) R.color.success else R.color.text_dim))
+        btnAdblockUpdate.visibility = if (adOn) View.VISIBLE else View.GONE
 
         binding = false
     }
@@ -908,5 +1044,7 @@ class MainActivity : Activity() {
 
     private companion object {
         const val REQ_AUTH = 1
+        const val REQ_VPN = 2
+        const val REQ_NOTIF = 3
     }
 }
