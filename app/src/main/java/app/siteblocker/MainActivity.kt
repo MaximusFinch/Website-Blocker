@@ -376,13 +376,17 @@ class MainActivity : Activity() {
         btnAdblockUpdate.isEnabled = false
         btnAdblockUpdate.text = "Downloading…"
         Thread {
-            val n = try { AdBlockList.download(this) } catch (_: Exception) { -1 }
+            var unsafe: String? = null
+            val n = try { AdBlockList.download(this) }
+            catch (e: AdBlockList.UnsafeListException) { unsafe = e.domain; -1 }
+            catch (_: Exception) { -1 }
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
                 btnAdblockUpdate.isEnabled = true
                 btnAdblockUpdate.setText(R.string.adblock_update)
                 toast(
-                    if (n < 0) "Couldn't download the list – check your internet connection."
+                    if (unsafe != null) "The new list would block $unsafe, so it was ignored. The old list stays active."
+                    else if (n < 0) "Couldn't download the list – check your internet connection."
                     else "List updated: ${num(n)} ad & tracker domains",
                     long = true,
                 )

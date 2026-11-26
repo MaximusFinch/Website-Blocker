@@ -35,6 +35,49 @@ object AdBlockList {
         "ip6-localhost", "ip6-loopback", "0.0.0.0",
     )
 
+    /**
+     * Important sites that are never blocked, whatever the list says: Android's
+     * connection check and push messages, big everyday sites, and the list's own
+     * download address (so a bad list can always be replaced).
+     * A downloaded list that blocks one of them (or a parent domain like
+     * gstatic.com) is treated as broken or tampered with and thrown away.
+     */
+    private val neverBlock = setOf(
+        "google.com", "www.google.com", "accounts.google.com", "play.google.com",
+        "mtalk.google.com", "clients3.google.com",
+        "connectivitycheck.gstatic.com", "connectivitycheck.android.com",
+        "www.gstatic.com", "fonts.gstatic.com",
+        "android.googleapis.com", "play.googleapis.com", "fcm.googleapis.com",
+        "www.googleapis.com", "firebaseinstallations.googleapis.com",
+        "youtube.com", "www.youtube.com", "m.youtube.com", "youtubei.googleapis.com", "i.ytimg.com",
+        "whatsapp.com", "www.whatsapp.com", "web.whatsapp.com", "g.whatsapp.net", "mmg.whatsapp.net",
+        "github.com", "raw.githubusercontent.com", "objects.githubusercontent.com",
+        "wikipedia.org", "en.wikipedia.org", "de.wikipedia.org",
+        "microsoft.com", "login.microsoftonline.com", "outlook.office.com", "teams.microsoft.com",
+        "apple.com", "icloud.com", "amazon.com", "amazon.de", "paypal.com",
+        "instagram.com", "www.instagram.com", "facebook.com", "www.facebook.com",
+        "cloudflare.com", "one.one.one.one", "dns.google",
+    )
+
+    /** The list would block an important site: it is broken or was tampered with. */
+    class UnsafeListException(val domain: String) :
+        IOException("The downloaded list would block $domain")
+
+    /** First important site the list would block (directly or through a parent domain), or null. */
+    private fun unsafeEntry(domains: Set<String>): String? {
+        for (n in neverBlock) {
+            var from = 0
+            while (true) {
+                val part = n.substring(from)
+                if (part in domains) return part
+                val dot = n.indexOf('.', from)
+                if (dot < 0 || n.indexOf('.', dot + 1) < 0) break
+                from = dot + 1
+            }
+        }
+        return null
+    }
+
     @Volatile
     private var hashes = LongArray(0)
 
@@ -95,6 +138,7 @@ object AdBlockList {
         if (h.isEmpty()) return false
         val end = if (host.endsWith('.')) host.length - 1 else host.length
         val name = if (end == host.length) host else host.substring(0, end)
+        if (name in neverBlock) return false
         var from = 0
         while (true) {
             if (java.util.Arrays.binarySearch(h, hash(name, from)) >= 0) return true
@@ -155,6 +199,8 @@ object AdBlockList {
                 }
             }
             if (found.size < 1000) throw IOException("The list looks broken")
+            // Keep the old list rather than one that would cut off important sites
+            unsafeEntry(found)?.let { throw UnsafeListException(it) }
             save(ctx, found)
             prefs(ctx).edit().putLong("adblock_updated", System.currentTimeMillis()).apply()
             File(ctx.filesDir, OLD_FILE).delete()
