@@ -5,6 +5,10 @@ import android.accessibilityservice.GestureDescription
 import android.graphics.Path
 import android.graphics.PixelFormat
 import android.graphics.Rect
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -71,6 +75,44 @@ class BlockerService : AccessibilityService() {
         if (AdBlockService.isEnabled(this) && !AdBlockService.running &&
             android.net.VpnService.prepare(this) == null
         ) try { AdBlockService.start(this) } catch (_: Exception) {}
+        watchVpnSlot()
+    }
+
+    // ---------- Ad blocker: VPN slot free again ----------
+
+    private var vpnCallback: ConnectivityManager.NetworkCallback? = null
+    private val vpnNetworks = HashSet<Network>()
+
+    /**
+     * Watches the other apps' VPNs (WebBlock's own VPN isn't visible here, as WebBlock
+     * is outside it). When the last one goes away while the ad blocker is waiting,
+     * a notification offers to turn it back on.
+     */
+    private fun watchVpnSlot() {
+        if (vpnCallback != null) return
+        val cm = getSystemService(ConnectivityManager::class.java) ?: return
+        val request = NetworkRequest.Builder()
+            .addTransportType(NetworkCapabilities.TRANSPORT_VPN)
+            .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+            .build()
+        val cb = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                synchronized(vpnNetworks) { vpnNetworks.add(network) }
+            }
+
+            override fun onLost(network: Network) {
+                val empty = synchronized(vpnNetworks) { vpnNetworks.remove(network); vpnNetworks.isEmpty() }
+                // Wait a moment: when switching VPNs, the next one comes right after
+                if (empty) handler.postDelayed({ checkVpnSlot() }, 3_000)
+            }
+        }
+        try { cm.registerNetworkCallback(request, cb); vpnCallback = cb } catch (_: Exception) {}
+    }
+
+    private fun checkVpnSlot() {
+        if (synchronized(vpnNetworks) { vpnNetworks.isNotEmpty() }) return
+        if (!AdBlockService.isWaiting(this) || AdBlockService.isEnabled(this)) return
+        AdBlockService.notifySlotFree(this)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -574,6 +616,10 @@ class BlockerService : AccessibilityService() {
     override fun onInterrupt() {}
 
     override fun onDestroy() {
+        vpnCallback?.let { cb ->
+            try { getSystemService(ConnectivityManager::class.java)?.unregisterNetworkCallback(cb) } catch (_: Exception) {}
+        }
+        vpnCallback = null
         hideOverlay()
         super.onDestroy()
     }

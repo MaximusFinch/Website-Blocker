@@ -222,6 +222,7 @@ class MainActivity : Activity() {
             if (on) enableAdBlock()
             else {
                 AdBlockService.setEnabled(this, false)
+                AdBlockService.setWaiting(this, false)   // turned off on purpose: no reminder
                 try { AdBlockService.stop(this) } catch (_: Exception) {}
                 refresh()
             }
@@ -263,6 +264,7 @@ class MainActivity : Activity() {
                 try { AdBlockService.start(this) } catch (_: Exception) {}
             } else {
                 AdBlockService.setEnabled(this, false)   // another VPN app has the slot now
+                AdBlockService.setWaiting(this, true)
             }
         }
         handler.post(ticker)

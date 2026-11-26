@@ -56,8 +56,8 @@
     <string name="stat_ads">Ads today</string>
     <string name="adblock_title">Ad blocker</string>
     <string name="adblock_desc">Blocks ads and trackers in all apps and browsers by filtering the addresses they look up. Video ads on YouTube can\'t be blocked this way.</string>
-    <string name="adblock_note">Uses Android\'s VPN slot, but nothing leaves your phone through it. Only one VPN can run at a time: if you start another one (e.g. NordVPN), the ad blocker turns off and a notification lets you turn it back on. Not affected by Alpha mode.</string>
+    <string name="adblock_note">Uses Android\'s VPN slot, but nothing leaves your phone through it. Only one VPN can run at a time: if you start another one (e.g. NordVPN), the ad blocker turns off, and you get a message as soon as it can run again. Not affected by Alpha mode.</string>
     <string name="adblock_update">Update list now</string>
     <string name="version_label">Version</string>
-    <string name="version">WebBlock 1.26</string>
+    <string name="version">WebBlock 1.27</string>
 </resources>

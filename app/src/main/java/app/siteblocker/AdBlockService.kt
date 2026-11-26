@@ -65,7 +65,47 @@ class AdBlockService : VpnService() {
         private fun prefs(ctx: Context) = ctx.getSharedPreferences("config", Context.MODE_PRIVATE)
 
         fun isEnabled(ctx: Context) = prefs(ctx).getBoolean("adblock_on", false)
-        fun setEnabled(ctx: Context, on: Boolean) = prefs(ctx).edit().putBoolean("adblock_on", on).apply()
+        fun setEnabled(ctx: Context, on: Boolean) {
+            val e = prefs(ctx).edit().putBoolean("adblock_on", on)
+            if (on) e.putBoolean("adblock_waiting", false)
+            e.apply()
+        }
+
+        /** Turned off by another VPN: tell the user once the VPN slot is free again. */
+        fun isWaiting(ctx: Context) = prefs(ctx).getBoolean("adblock_waiting", false)
+        fun setWaiting(ctx: Context, on: Boolean) = prefs(ctx).edit().putBoolean("adblock_waiting", on).apply()
+
+        /** "VPN slot free again – tap to turn the ad blocker back on". */
+        fun notifySlotFree(ctx: Context) = showNote(
+            ctx, "Ad blocker can be turned on again",
+            "The other VPN was turned off, so the ad blocker can run again. Tap to turn it on.",
+        )
+
+        /** Notification that opens WebBlock and turns the ad blocker back on when tapped. */
+        private fun showNote(ctx: Context, title: String, text: String) {
+            val nm = ctx.getSystemService(NotificationManager::class.java) ?: return
+            if (Build.VERSION.SDK_INT >= 26) {
+                nm.createNotificationChannel(
+                    NotificationChannel(CHANNEL, "Ad blocker", NotificationManager.IMPORTANCE_DEFAULT)
+                )
+            }
+            val open = PendingIntent.getActivity(
+                ctx, 0,
+                Intent(ctx, MainActivity::class.java).setAction(ACTION_ENABLE)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(ctx, CHANNEL)
+            else @Suppress("DEPRECATION") Notification.Builder(ctx)
+            builder.setSmallIcon(R.drawable.ic_shield)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setStyle(Notification.BigTextStyle().bigText(text))
+                .setContentIntent(open)
+                .setAutoCancel(true)
+            // Same ID: the newer message replaces the older one
+            try { nm.notify(NOTE_OFF, builder.build()) } catch (_: SecurityException) {}
+        }
 
         fun start(ctx: Context) {
             ctx.startService(Intent(ctx, AdBlockService::class.java).setAction(ACTION_START))
@@ -108,6 +148,7 @@ class AdBlockService : VpnService() {
         // Permission missing (e.g. another VPN app was allowed in the meantime)
         if (prepare(this) != null) {
             setEnabled(this, false)
+            setWaiting(this, true)
             notifyOff()
             stopSelf()
             return
@@ -407,6 +448,7 @@ class AdBlockService : VpnService() {
     override fun onRevoke() {
         shutdown()
         setEnabled(this, false)
+        setWaiting(this, true)
         notifyOff()
         stopSelf()
     }
@@ -417,30 +459,11 @@ class AdBlockService : VpnService() {
     }
 
     /** "Ad blocker turned off – tap to turn it back on". */
-    private fun notifyOff() {
-        val nm = getSystemService(NotificationManager::class.java) ?: return
-        if (Build.VERSION.SDK_INT >= 26) {
-            nm.createNotificationChannel(
-                NotificationChannel(CHANNEL, "Ad blocker", NotificationManager.IMPORTANCE_DEFAULT)
-            )
-        }
-        val open = PendingIntent.getActivity(
-            this, 0,
-            Intent(this, MainActivity::class.java).setAction(ACTION_ENABLE)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
-        val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CHANNEL)
-        else @Suppress("DEPRECATION") Notification.Builder(this)
-        val text = "Another VPN was started, so Android turned the ad blocker off. Tap to turn it back on."
-        builder.setSmallIcon(R.drawable.ic_shield)
-            .setContentTitle("Ad blocker turned off")
-            .setContentText(text)
-            .setStyle(Notification.BigTextStyle().bigText(text))
-            .setContentIntent(open)
-            .setAutoCancel(true)
-        try { nm.notify(NOTE_OFF, builder.build()) } catch (_: SecurityException) {}
-    }
+    private fun notifyOff() = showNote(
+        this, "Ad blocker turned off",
+        "Another VPN was started, so Android turned the ad blocker off. " +
+            "You'll get a message when it can run again, or tap to turn it back on now.",
+    )
 
     // ---------- Packet helpers ----------
 

@@ -26,7 +26,8 @@ actual traffic never goes through it, and nothing is sent to any other server.
 - Filter list: [StevenBlack/hosts](https://github.com/StevenBlack/hosts) (ads + trackers), downloaded
   once a week. Only the domain names are read from it – no code is downloaded.
 - Only one VPN can run on Android at a time. If you start another VPN (e.g. NordVPN), Android turns
-  the ad blocker off and WebBlock shows a notification to turn it back on.
+  the ad blocker off and WebBlock shows a notification. As soon as the other VPN is turned off,
+  a second message lets you turn the ad blocker back on with one tap.
 - Video ads on YouTube come from the same servers as the videos, so they can't be blocked this way.
 - If "Private DNS" in the Android settings is set to a specific provider, lookups bypass the ad blocker.
 - Safety net: important sites (Google, YouTube, WhatsApp, GitHub, Android's connection check, …) are never
