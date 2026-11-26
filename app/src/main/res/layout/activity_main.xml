@@ -147,10 +147,19 @@
         <!-- Block list -->
         <LinearLayout style="@style/Card">
 
+            <TextView
+                style="@style/CardTitle"
+                android:text="@string/sites_header" />
+
+            <TextView
+                style="@style/CardDesc"
+                android:text="@string/sites_desc" />
+
             <EditText
                 android:id="@+id/input_site"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
                 android:background="@drawable/bg_input"
                 android:gravity="top|start"
                 android:hint="@string/sites_hint"
@@ -193,33 +202,64 @@
                 android:layout_marginTop="8dp"
                 android:text="@string/add_app" />
 
+            <TextView
+                style="@style/TileLabel"
+                android:layout_width="match_parent"
+                android:layout_marginTop="22dp"
+                android:layout_marginBottom="8dp"
+                android:layout_weight="0"
+                android:text="@string/lists_label" />
+
             <!-- Always list (collapsible) -->
             <LinearLayout
                 android:id="@+id/always_toggle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="0dp"
                 android:background="@drawable/bg_tile"
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center_vertical"
-                android:minHeight="50dp"
+                android:minHeight="62dp"
                 android:orientation="horizontal"
-                android:paddingHorizontal="16dp">
+                android:paddingStart="14dp"
+                android:paddingEnd="16dp"
+                android:paddingVertical="10dp">
 
-                <TextView
-                    android:id="@+id/always_toggle_text"
+                <View
+                    android:layout_width="4dp"
+                    android:layout_height="34dp"
+                    android:background="@drawable/bg_bar_always" />
+
+                <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="14dp"
                     android:layout_weight="1"
-                    android:fontFamily="sans-serif-medium"
-                    android:textColor="@color/text"
-                    android:textSize="15sp" />
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/always_toggle_text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif-medium"
+                        android:textColor="@color/text"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:id="@+id/always_sub"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:textColor="@color/text_dim"
+                        android:textSize="12sp" />
+                </LinearLayout>
 
                 <TextView
                     android:id="@+id/always_chevron"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:text="▾"
                     android:textColor="@color/text_dim"
                     android:textSize="18sp" />
@@ -242,23 +282,46 @@
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center_vertical"
-                android:minHeight="50dp"
+                android:minHeight="62dp"
                 android:orientation="horizontal"
-                android:paddingHorizontal="16dp">
+                android:paddingStart="14dp"
+                android:paddingEnd="16dp"
+                android:paddingVertical="10dp">
 
-                <TextView
-                    android:id="@+id/flex_toggle_text"
+                <View
+                    android:layout_width="4dp"
+                    android:layout_height="34dp"
+                    android:background="@drawable/bg_bar_flex" />
+
+                <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="14dp"
                     android:layout_weight="1"
-                    android:fontFamily="sans-serif-medium"
-                    android:textColor="@color/text"
-                    android:textSize="15sp" />
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/flex_toggle_text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif-medium"
+                        android:textColor="@color/text"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:id="@+id/flex_sub"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:textColor="@color/text_dim"
+                        android:textSize="12sp" />
+                </LinearLayout>
 
                 <TextView
                     android:id="@+id/flex_chevron"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:text="▾"
                     android:textColor="@color/text_dim"
                     android:textSize="18sp" />

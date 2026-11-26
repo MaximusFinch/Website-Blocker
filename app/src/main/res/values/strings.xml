@@ -13,7 +13,7 @@
     <string name="status_off">●  Unprotected</string>
     <string name="alpha_on">●  Alpha mode on</string>
     <string name="alpha_off">●  Alpha mode off</string>
-    <string name="sub_active">Sites on your list are being blocked</string>
+    <string name="sub_active">Your block lists are active</string>
     <string name="sub_service_off">Accessibility service is off</string>
     <string name="sub_disabled">Blocking is paused</string>
     <string name="sub_no_sites">Nothing on the block lists</string>
@@ -26,13 +26,15 @@
     <string name="blocking_off_title">Blocking is paused</string>
     <string name="blocking_off_desc">Nothing is being blocked right now. To pause again later, tap the green status.</string>
     <string name="turn_on">Turn on</string>
-    <string name="sites_header">Blocked sites</string>
+    <string name="sites_header">Block list</string>
+    <string name="sites_desc">Add websites or apps – blocked always, or only at the times in the schedule.</string>
+    <string name="lists_label">Your lists</string>
     <string name="sites_hint">One per line or separated by commas\ne.g. x.com, youtube.com</string>
     <string name="add_always">Block always</string>
     <string name="add_flex">Block on schedule</string>
-    <string name="add_app">＋ Block an app</string>
-    <string name="list_always">🔒  Always blocked</string>
-    <string name="list_flex">⏱  Blocked on schedule</string>
+    <string name="add_app">＋  Block an app</string>
+    <string name="list_always">Always blocked</string>
+    <string name="list_flex">Blocked on schedule</string>
     <string name="list_always_desc">Blocked around the clock. In Alpha mode nothing here can be removed or moved.</string>
     <string name="list_flex_desc">Blocked at the times set in the schedule. Can always be changed, even in Alpha mode.</string>
     <string name="no_sites">Nothing on this list yet.</string>
@@ -50,5 +52,5 @@
     <string name="locked_hint">Alpha mode is activated – changes are possible once it ends.</string>
     <string name="help">Android 13 and newer: Settings › Apps › WebBlock › ⋮ › \"Allow restricted settings\", then enable it here.</string>
     <string name="version_label">Version</string>
-    <string name="version">WebBlock 1.22</string>
+    <string name="version">WebBlock 1.23</string>
 </resources>

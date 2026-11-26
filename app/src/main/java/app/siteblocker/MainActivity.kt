@@ -49,9 +49,11 @@ class MainActivity : Activity() {
     private lateinit var cardSchedule: View
     private lateinit var alwaysToggleText: TextView
     private lateinit var alwaysChevron: TextView
+    private lateinit var alwaysSub: TextView
     private lateinit var alwaysList: LinearLayout
     private lateinit var flexToggleText: TextView
     private lateinit var flexChevron: TextView
+    private lateinit var flexSub: TextView
     private lateinit var flexList: LinearLayout
     private var alwaysExpanded = false
     private var flexExpanded = false
@@ -111,9 +113,11 @@ class MainActivity : Activity() {
         cardSchedule = findViewById(R.id.card_schedule)
         alwaysToggleText = findViewById(R.id.always_toggle_text)
         alwaysChevron = findViewById(R.id.always_chevron)
+        alwaysSub = findViewById(R.id.always_sub)
         alwaysList = findViewById(R.id.always_list)
         flexToggleText = findViewById(R.id.flex_toggle_text)
         flexChevron = findViewById(R.id.flex_chevron)
+        flexSub = findViewById(R.id.flex_sub)
         flexList = findViewById(R.id.flex_list)
         findViewById<View>(R.id.always_toggle).setOnClickListener { toggleList(true) }
         findViewById<View>(R.id.flex_toggle).setOnClickListener { toggleList(false) }
@@ -286,11 +290,7 @@ class MainActivity : Activity() {
     /** The Alpha mode message: only shown when a locked control (or the Alpha status) is tapped. */
     private fun denied() {
         val until = BlockConfig.getStrictUntil(this)
-        Toast.makeText(
-            this,
-            getString(R.string.locked_hint) + "\n(${remaining(until)} left)",
-            Toast.LENGTH_LONG,
-        ).show()
+        toast(getString(R.string.locked_hint) + "\n(${remaining(until)} left)", long = true, key = "denied")
     }
 
     private fun isServiceEnabled(): Boolean {
@@ -451,6 +451,15 @@ class MainActivity : Activity() {
         val box = if (always) alwaysList else flexList
         (if (always) alwaysToggleText else flexToggleText)
             .setText(if (always) R.string.list_always else R.string.list_flex)
+        // Second line: what the list does right now and how many entries it has
+        val count = BlockConfig.getSites(this, always).size + BlockConfig.getApps(this, always).size
+        val entries = if (count == 1) "1 entry" else "$count entries"
+        (if (always) alwaysSub else flexSub).text = when {
+            always -> "Around the clock · $entries"
+            !BlockConfig.isScheduleEnabled(this) -> "Schedule off – blocked all day · $entries"
+            BlockConfig.isActiveNow(this) -> "Blocked right now · $entries"
+            else -> "Not blocked right now · $entries"
+        }
         (if (always) alwaysChevron else flexChevron).text = when {
             expanded -> "▴"
             listUnlocked -> "▾"
@@ -788,7 +797,24 @@ class MainActivity : Activity() {
         refresh()
     }
 
-    private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+    private var shownToast: Toast? = null
+    private var shownToastKey: String? = null
+    private var shownToastUntil = 0L
+
+    /**
+     * Shows a short message. Tapping again while the same message is still on screen
+     * does nothing (Android would otherwise queue it again and again); a different
+     * message replaces the current one.
+     */
+    private fun toast(msg: String, long: Boolean = false, key: String = msg) {
+        val now = android.os.SystemClock.uptimeMillis()
+        if (key == shownToastKey && now < shownToastUntil) return
+        shownToast?.cancel()
+        shownToast = Toast.makeText(this, msg, if (long) Toast.LENGTH_LONG else Toast.LENGTH_SHORT).also { it.show() }
+        shownToastKey = key
+        // Android shows LENGTH_LONG for 3.5 s and LENGTH_SHORT for 2 s
+        shownToastUntil = now + if (long) 3600 else 2100
+    }
 
     /** Checks in the background whether the sites on both lists still exist. */
     private fun checkExistence() {
@@ -846,11 +872,11 @@ class MainActivity : Activity() {
         val now = System.currentTimeMillis()
         val current = BlockConfig.getStrictUntil(this)
         if (end <= now) {
-            Toast.makeText(this, "That time is in the past.", Toast.LENGTH_LONG).show()
+            toast("That time is in the past.", long = true)
             return
         }
         if (current > now && end <= current) {
-            Toast.makeText(this, "Alpha mode can only be extended, not shortened.", Toast.LENGTH_LONG).show()
+            toast("Alpha mode can only be extended, not shortened.", long = true)
             return
         }
         AlertDialog.Builder(this)

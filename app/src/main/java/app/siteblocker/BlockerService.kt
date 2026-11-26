@@ -161,7 +161,7 @@ class BlockerService : AccessibilityService() {
 
         performGlobalAction(GLOBAL_ACTION_HOME)
         val now = SystemClock.uptimeMillis()
-        if (now - lastGuardToast > 3000) {
+        if (now - lastGuardToast > 3700) {
             lastGuardToast = now
             Toast.makeText(this, R.string.guard_hint, Toast.LENGTH_LONG).show()
         }
