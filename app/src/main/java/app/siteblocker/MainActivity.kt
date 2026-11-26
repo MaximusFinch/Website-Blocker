@@ -25,9 +25,12 @@ import android.text.style.ForegroundColorSpan
 import android.text.style.RelativeSizeSpan
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.CheckBox
+import android.widget.ArrayAdapter
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Switch
 import android.widget.TextView
@@ -44,21 +47,28 @@ class MainActivity : Activity() {
     private lateinit var headerIcon: View
     private lateinit var cardEnabled: View
     private lateinit var cardSchedule: View
-    private lateinit var sitesToggleText: TextView
-    private lateinit var sitesChevron: TextView
-    private var listExpanded = false
+    private lateinit var alwaysToggleText: TextView
+    private lateinit var alwaysChevron: TextView
+    private lateinit var alwaysList: LinearLayout
+    private lateinit var flexToggleText: TextView
+    private lateinit var flexChevron: TextView
+    private lateinit var flexList: LinearLayout
+    private var alwaysExpanded = false
+    private var flexExpanded = false
+    /** List the sites being checked right now will be added to. */
+    private var pendingAlways = true
     /** True after a successful fingerprint / PIN check, until the app goes to the background. */
     private var listUnlocked = false
     /** Result of the last existence check per site (green / red dot). */
     private val existence = mutableMapOf<String, SiteChecker.Exists>()
     private var checkingSites = false
     private var onAuthResult: (() -> Unit)? = null
-    private lateinit var btnAdd: Button
+    private lateinit var btnAddAlways: Button
+    private lateinit var btnAddFlex: Button
     private lateinit var serviceCard: View
     private lateinit var btnService: Button
     private lateinit var alphaStatus: TextView
     private lateinit var input: EditText
-    private lateinit var siteList: LinearLayout
     private lateinit var swSchedule: Switch
     private lateinit var scheduleBox: LinearLayout
     private lateinit var btnStart: Button
@@ -99,26 +109,18 @@ class MainActivity : Activity() {
         headerIcon = findViewById(R.id.header_icon)
         cardEnabled = findViewById(R.id.card_enabled)
         cardSchedule = findViewById(R.id.card_schedule)
-        sitesToggleText = findViewById(R.id.sites_toggle_text)
-        sitesChevron = findViewById(R.id.sites_chevron)
-        findViewById<View>(R.id.sites_toggle).setOnClickListener {
-            when {
-                listExpanded -> { listExpanded = false; refresh() }
-                listUnlocked -> { listExpanded = true; refresh(); checkExistence() }
-                // Fingerprint, face or screen lock PIN before the list is shown
-                else -> authenticate {
-                    listUnlocked = true
-                    listExpanded = true
-                    refresh()
-                    checkExistence()
-                }
-            }
-        }
+        alwaysToggleText = findViewById(R.id.always_toggle_text)
+        alwaysChevron = findViewById(R.id.always_chevron)
+        alwaysList = findViewById(R.id.always_list)
+        flexToggleText = findViewById(R.id.flex_toggle_text)
+        flexChevron = findViewById(R.id.flex_chevron)
+        flexList = findViewById(R.id.flex_list)
+        findViewById<View>(R.id.always_toggle).setOnClickListener { toggleList(true) }
+        findViewById<View>(R.id.flex_toggle).setOnClickListener { toggleList(false) }
         serviceCard = findViewById(R.id.service_card)
         btnService = findViewById(R.id.btn_service)
         alphaStatus = findViewById(R.id.alpha_status)
         input = findViewById(R.id.input_site)
-        siteList = findViewById(R.id.site_list)
         swSchedule = findViewById(R.id.sw_schedule)
         scheduleBox = findViewById(R.id.schedule_box)
         btnStart = findViewById(R.id.btn_start)
@@ -131,8 +133,11 @@ class MainActivity : Activity() {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
 
-        btnAdd = findViewById(R.id.btn_add)
-        btnAdd.setOnClickListener { addSites() }
+        btnAddAlways = findViewById(R.id.btn_add_always)
+        btnAddAlways.setOnClickListener { addSites(true) }
+        btnAddFlex = findViewById(R.id.btn_add_flex)
+        btnAddFlex.setOnClickListener { addSites(false) }
+        findViewById<Button>(R.id.btn_add_app).setOnClickListener { pickApp() }
 
         // Paused-notice: "Turn on" closes it (it slides away upwards)
         findViewById<Button>(R.id.btn_enable).setOnClickListener {
@@ -155,16 +160,13 @@ class MainActivity : Activity() {
 
         swSchedule.setOnCheckedChangeListener { _, checked ->
             if (binding) return@setOnCheckedChangeListener
-            if (isLocked()) { denied(); refresh(); return@setOnCheckedChangeListener }
             BlockConfig.setScheduleEnabled(this, checked); refresh()
         }
 
         btnStart.setOnClickListener {
-            if (isLocked()) { denied(); return@setOnClickListener }
             pickTime(BlockConfig.getStart(this)) { BlockConfig.setStart(this, it); refresh() }
         }
         btnEnd.setOnClickListener {
-            if (isLocked()) { denied(); return@setOnClickListener }
             pickTime(BlockConfig.getEnd(this)) { BlockConfig.setEnd(this, it); refresh() }
         }
 
@@ -183,7 +185,6 @@ class MainActivity : Activity() {
                 }
                 setOnCheckedChangeListener { _, checked ->
                     if (binding) return@setOnCheckedChangeListener
-                    if (isLocked()) { denied(); refresh(); return@setOnCheckedChangeListener }
                     val bit = 1 shl (day - 1)
                     val d = BlockConfig.getDays(this@MainActivity)
                     BlockConfig.setDays(this@MainActivity, if (checked) d or bit else d and bit.inv())
@@ -218,7 +219,8 @@ class MainActivity : Activity() {
         super.onStop()
         // Leaving the app locks the list again
         listUnlocked = false
-        listExpanded = false
+        alwaysExpanded = false
+        flexExpanded = false
     }
 
     // ---------- Fingerprint / PIN ----------
@@ -309,8 +311,8 @@ class MainActivity : Activity() {
         val reason = when {
             !serviceOn -> R.string.sub_service_off
             !BlockConfig.isEnabled(this) -> R.string.sub_disabled
-            BlockConfig.getSites(this).isEmpty() -> R.string.sub_no_sites
-            !BlockConfig.isActiveNow(this) -> R.string.sub_schedule
+            !BlockConfig.hasEntries(this) -> R.string.sub_no_sites
+            BlockConfig.activeSites(this).isEmpty() && BlockConfig.activeApps(this).isEmpty() -> R.string.sub_schedule
             else -> null
         }
         val protectedNow = reason == null
@@ -356,8 +358,6 @@ class MainActivity : Activity() {
         }
         // Only shown while blocking is paused (never in Alpha mode)
         cardEnabled.visibility = if (!lock && !BlockConfig.isEnabled(this)) View.VISIBLE else View.GONE
-        // Stays visible in Alpha mode but dimmed; tapping it shows the Alpha mode message
-        cardSchedule.alpha = if (lock) 0.5f else 1f
 
         swSchedule.isChecked = BlockConfig.isScheduleEnabled(this)
         scheduleBox.visibility = if (swSchedule.isChecked) View.VISIBLE else View.GONE
@@ -379,7 +379,7 @@ class MainActivity : Activity() {
             btnStrict.setText(R.string.strict_start)
         }
 
-        renderSites(lock)
+        renderLists(lock)
 
         binding = false
     }
@@ -396,21 +396,79 @@ class MainActivity : Activity() {
         }.joinToString(" ")
     }
 
-    // ---------- Block list ----------
+    // ---------- Block lists ----------
+    //
+    // Two lists with websites and apps:
+    //  - Always:      blocked around the clock; in Alpha mode nothing can be removed or moved out
+    //  - On schedule: blocked at the scheduled times; can always be changed
 
-    private fun renderSites(lock: Boolean) {
-        siteList.removeAllViews()
-        val sites = BlockConfig.getSites(this)
-        sitesToggleText.setText(R.string.sites_header)
-        sitesChevron.text = when {
-            listExpanded -> "▴"
+    /** One entry on a block list: a website or an app (package name). */
+    private data class Entry(val value: String, val isApp: Boolean)
+
+    private data class AppItem(val pkg: String, val label: String, val icon: Drawable?)
+
+    private fun entries(always: Boolean) =
+        BlockConfig.getSites(this, always).map { Entry(it, false) } +
+            BlockConfig.getApps(this, always).map { Entry(it, true) }
+
+    /** App name, or null when the app is not installed (any more). */
+    private fun appLabel(pkg: String): String? = try {
+        packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
+    } catch (_: Exception) { null }
+
+    private fun appIcon(pkg: String): Drawable? = try {
+        packageManager.getApplicationIcon(pkg)
+    } catch (_: Exception) { null }
+
+    private fun nameOf(e: Entry) = if (e.isApp) appLabel(e.value) ?: e.value else e.value
+
+    /** Has no effect any more: a site that doesn't exist or an app that isn't installed. */
+    private fun isDead(e: Entry) =
+        if (e.isApp) appLabel(e.value) == null else existence[e.value] == SiteChecker.Exists.NO
+
+    /** Opens / closes a list; the first time after opening the app it asks for fingerprint or PIN. */
+    private fun toggleList(always: Boolean) {
+        val expanded = if (always) alwaysExpanded else flexExpanded
+        val open = {
+            if (always) alwaysExpanded = true else flexExpanded = true
+            refresh()
+            checkExistence()
+        }
+        when {
+            expanded -> { if (always) alwaysExpanded = false else flexExpanded = false; refresh() }
+            listUnlocked -> open()
+            else -> authenticate { listUnlocked = true; open() }
+        }
+    }
+
+    private fun renderLists(lock: Boolean) {
+        renderList(true, lock)
+        renderList(false, lock)
+    }
+
+    private fun renderList(always: Boolean, lock: Boolean) {
+        val expanded = if (always) alwaysExpanded else flexExpanded
+        val box = if (always) alwaysList else flexList
+        (if (always) alwaysToggleText else flexToggleText)
+            .setText(if (always) R.string.list_always else R.string.list_flex)
+        (if (always) alwaysChevron else flexChevron).text = when {
+            expanded -> "▴"
             listUnlocked -> "▾"
             else -> "🔒"
         }
-        siteList.visibility = if (listExpanded) View.VISIBLE else View.GONE
-        if (!listExpanded) return
-        if (sites.isEmpty()) {
-            siteList.addView(TextView(this).apply {
+        box.removeAllViews()
+        box.visibility = if (expanded) View.VISIBLE else View.GONE
+        if (!expanded) return
+
+        box.addView(TextView(this).apply {
+            setText(if (always) R.string.list_always_desc else R.string.list_flex_desc)
+            textSize = 12f
+            setTextColor(getColor(R.color.text_dim))
+            setPadding(dp(4), dp(8), dp(4), 0)
+        })
+        val items = entries(always)
+        if (items.isEmpty()) {
+            box.addView(TextView(this).apply {
                 setText(R.string.no_sites)
                 gravity = Gravity.CENTER
                 setPadding(0, dp(14), 0, dp(6))
@@ -418,7 +476,10 @@ class MainActivity : Activity() {
             })
             return
         }
-        for (site in sites) {
+        for (e in items) {
+            val dead = isDead(e)
+            // Always list in Alpha mode: can't be removed or moved (except entries without effect)
+            val locked = always && lock && !dead
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
@@ -428,74 +489,170 @@ class MainActivity : Activity() {
                     LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
                 ).apply { topMargin = dp(8) }
             }
-            // Dot: green = site exists, red = site doesn't exist (can always be removed),
-            // grey = not checked yet / no internet
-            val exists = existence[site]
-            val dead = exists == SiteChecker.Exists.NO
-            row.addView(View(this).apply {
-                background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(
-                        when (exists) {
-                            SiteChecker.Exists.YES -> getColor(R.color.success)
-                            SiteChecker.Exists.NO -> getColor(R.color.danger)
-                            else -> getColor(R.color.text_hint)
-                        }
-                    )
+            val icon = if (e.isApp) appIcon(e.value) else null
+            if (icon != null) {
+                // App: its icon
+                row.addView(ImageView(this).apply {
+                    setImageDrawable(icon)
+                    layoutParams = LinearLayout.LayoutParams(dp(24), dp(24)).apply { marginEnd = dp(10) }
+                })
+            } else {
+                // Website: green = exists, red = doesn't exist / app not installed, grey = not checked yet
+                val color = when {
+                    dead -> getColor(R.color.danger)
+                    !e.isApp && existence[e.value] == SiteChecker.Exists.YES -> getColor(R.color.success)
+                    else -> getColor(R.color.text_hint)
                 }
-                layoutParams = LinearLayout.LayoutParams(dp(8), dp(8)).apply { marginEnd = dp(12) }
-            })
+                row.addView(View(this).apply {
+                    background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(color) }
+                    layoutParams = LinearLayout.LayoutParams(dp(8), dp(8)).apply { marginEnd = dp(12) }
+                })
+            }
             row.addView(TextView(this).apply {
-                text = site
+                text = if (e.isApp && dead) "${e.value} (not installed)" else nameOf(e)
                 textSize = 15f
                 setTextColor(getColor(R.color.text))
                 isSingleLine = true
                 ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             })
-            row.addView(Button(this, null, android.R.attr.borderlessButtonStyle).apply {
-                text = if (lock && !dead) "🔒" else "✕"
-                textSize = 16f
-                setTextColor(getColor(R.color.text_dim))
-                minWidth = dp(44)
-                minimumWidth = dp(44)
-                alpha = if (lock && !dead) 0.5f else 1f
-                setOnClickListener { removeSite(site) }
-            })
-            siteList.addView(row)
+            // Move to the other list
+            row.addView(smallButton("⇄", locked) { moveEntry(e, always) })
+            row.addView(smallButton(if (locked) "🔒" else "✕", locked) { removeEntry(e, always) })
+            box.addView(row)
         }
     }
 
+    private fun smallButton(label: String, dimmed: Boolean, onClick: () -> Unit) =
+        Button(this, null, android.R.attr.borderlessButtonStyle).apply {
+            text = label
+            textSize = 16f
+            setTextColor(getColor(R.color.text_dim))
+            minWidth = dp(40)
+            minimumWidth = dp(40)
+            setPadding(0, 0, 0, 0)
+            alpha = if (dimmed) 0.5f else 1f
+            setOnClickListener { onClick() }
+        }
+
+    private fun addTo(e: Entry, always: Boolean) {
+        if (e.isApp) {
+            val apps = BlockConfig.getApps(this, always)
+            if (e.value !in apps) BlockConfig.setApps(this, apps + e.value, always)
+        } else {
+            val sites = BlockConfig.getSites(this, always)
+            if (sites.none { it.equals(e.value, true) }) BlockConfig.setSites(this, sites + e.value, always)
+        }
+    }
+
+    private fun removeFrom(e: Entry, always: Boolean) {
+        if (e.isApp) BlockConfig.setApps(this, BlockConfig.getApps(this, always).filter { it != e.value }, always)
+        else BlockConfig.setSites(this, BlockConfig.getSites(this, always).filter { it != e.value }, always)
+    }
+
+    /** Always → On schedule is not possible in Alpha mode; the other way round always is. */
+    private fun moveEntry(e: Entry, fromAlways: Boolean) {
+        if (fromAlways && isLocked() && !isDead(e)) { denied(); return }
+        val name = nameOf(e)
+        val dialog = AlertDialog.Builder(this)
+        if (fromAlways) {
+            dialog.setTitle("Move to the On schedule list?")
+                .setMessage("\"$name\" will only be blocked at the scheduled times.")
+        } else {
+            dialog.setTitle("Move to the Always list?")
+                .setMessage(
+                    "\"$name\" will be blocked around the clock." +
+                        if (isLocked()) "\n\nAlpha mode is on: it can't be moved back until Alpha mode ends." else ""
+                )
+        }
+        dialog.setPositiveButton("Move") { _, _ ->
+            removeFrom(e, fromAlways)
+            addTo(e, !fromAlways)
+            refresh()
+        }.setNegativeButton("Cancel", null).show()
+    }
+
+    private fun removeEntry(e: Entry, always: Boolean) {
+        val name = nameOf(e)
+        if (always && isLocked()) {
+            // In Alpha mode only entries without effect can be removed from the Always list
+            if (e.isApp) {
+                if (appLabel(e.value) != null) { denied(); return }
+                confirmRemove(e, true, "\"${e.value}\" is no longer installed.\n\nRemove it from the block list?")
+                return
+            }
+            if (existence[e.value] != SiteChecker.Exists.NO) { denied(); return }
+            // Check again online first
+            Thread {
+                val dead = SiteChecker.exists(listOf(e.value))[e.value] == SiteChecker.Exists.NO
+                runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+                    if (!dead) {
+                        existence.remove(e.value); refresh(); denied()
+                        return@runOnUiThread
+                    }
+                    confirmRemove(e, true, "\"$name\" doesn't exist, so blocking it has no effect.\n\nRemove it from the block list?")
+                }
+            }.start()
+            return
+        }
+        confirmRemove(
+            e, always,
+            when {
+                !e.isApp && existence[e.value] == SiteChecker.Exists.NO -> "\"$name\" doesn't exist. Remove it from the block list?"
+                else -> "Remove \"$name\" from the block list?"
+            }
+        )
+    }
+
+    private fun confirmRemove(e: Entry, always: Boolean, message: String) {
+        AlertDialog.Builder(this)
+            .setMessage(message)
+            .setPositiveButton("Remove") { _, _ -> removeFrom(e, always); refresh() }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    // ---------- Adding websites ----------
+
     /**
-     * Adds all entered sites (separated by new lines, commas, semicolons or spaces).
-     * Each domain is checked first; for unknown or misspelled ones the user can
-     * pick the suggested correction, keep the entry as typed or skip it.
+     * Adds all entered sites (separated by new lines, commas, semicolons or spaces)
+     * to the Always list or the On schedule list. Each domain is checked first; for
+     * unknown or misspelled ones the user can pick the correction, keep it or skip it.
      */
-    private fun addSites() {
-        val existing = BlockConfig.getSites(this)
+    private fun addSites(always: Boolean) {
         val entries = input.text.toString()
             .split(Regex("[\\s,;]+"))
             .map { BlockConfig.normalize(it) }
             .filter { it.isNotEmpty() }
             .distinct()
-        if (entries.isEmpty()) return
+        if (entries.isEmpty()) {
+            toast("Enter a website first, e.g. youtube.com")
+            return
+        }
         // Keywords are not supported: only real websites like youtube.com
         val notSites = entries.filterNot { BlockConfig.isWebsite(it) }
         if (notSites.isNotEmpty()) {
             toast("Not a website: ${notSites.joinToString(", ")} – enter e.g. ${notSites.first()}.com")
             return
         }
+        val existing = BlockConfig.getSites(this, always)
         val newOnes = entries.filter { e -> existing.none { it.equals(e, true) } }
-        if (newOnes.isEmpty()) { toast("Already on the list"); return }
+        if (newOnes.isEmpty()) { toast("Already on this list"); return }
 
-        btnAdd.isEnabled = false
-        btnAdd.text = "Checking…"
+        pendingAlways = always
+        val btn = if (always) btnAddAlways else btnAddFlex
+        btnAddAlways.isEnabled = false
+        btnAddFlex.isEnabled = false
+        btn.text = "Checking…"
         Thread {
             val report = SiteChecker.check(newOnes)
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
-                btnAdd.isEnabled = true
-                btnAdd.setText(R.string.add)
+                btnAddAlways.isEnabled = true
+                btnAddFlex.isEnabled = true
+                btnAddAlways.setText(R.string.add_always)
+                btnAddFlex.setText(R.string.add_flex)
                 input.setText("")
                 if (report.offline) toast("No internet – added without checking")
                 reviewNext(ArrayDeque(report.results), mutableListOf())
@@ -531,31 +688,112 @@ class MainActivity : Activity() {
         dialog.show()
     }
 
+    /**
+     * Saves the accepted sites. A site on the other list is moved when that makes
+     * blocking stricter (On schedule → Always); an Always site is never weakened here.
+     */
     private fun saveAdded(accepted: List<String>) {
         if (accepted.isEmpty()) return
-        val sites = BlockConfig.getSites(this).toMutableList()
+        val always = pendingAlways
+        val target = BlockConfig.getSites(this, always).toMutableList()
+        val other = BlockConfig.getSites(this, !always).toMutableList()
         var added = 0
+        var onAlways = 0
         for (e in accepted) {
-            if (sites.none { it.equals(e, true) }) { sites.add(e); added++ }
+            if (target.any { it.equals(e, true) }) continue
+            val inOther = other.firstOrNull { it.equals(e, true) }
+            if (inOther != null) {
+                if (!always) { onAlways++; continue }
+                other.remove(inOther)
+            }
+            target.add(e)
+            added++
         }
-        BlockConfig.setSites(this, sites)
-        if (listExpanded) checkExistence()
+        BlockConfig.setSites(this, target, always)
+        BlockConfig.setSites(this, other, !always)
+        if (alwaysExpanded || flexExpanded) checkExistence()
         toast(
-            when (added) {
-                0 -> "Already on the list"
-                1 -> "Site added"
-                else -> "Sites added"
+            when {
+                onAlways > 0 && added == 0 -> "Already on the Always list"
+                added == 0 -> "Already on this list"
+                always -> if (added == 1) "Blocked always" else "$added sites blocked always"
+                else -> if (added == 1) "Blocked on schedule" else "$added sites blocked on schedule"
             }
         )
         refresh()
     }
 
+    // ---------- Adding apps ----------
+
+    /** Shows the installed apps; the chosen one goes to the Always or the On schedule list. */
+    private fun pickApp() {
+        toast("Loading apps…")
+        Thread {
+            val blocked = (BlockConfig.getApps(this, true) + BlockConfig.getApps(this, false)).toSet()
+            val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+            val apps = packageManager.queryIntentActivities(launcher, 0)
+                .mapNotNull { it.activityInfo?.packageName }
+                .distinct()
+                .filter { it !in blocked && BlockConfig.canBlockApp(this, it) }
+                .mapNotNull { pkg -> appLabel(pkg)?.let { AppItem(pkg, it, appIcon(pkg)) } }
+                .sortedBy { it.label.lowercase() }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                if (apps.isEmpty()) { toast("No apps to block"); return@runOnUiThread }
+                val adapter = object : ArrayAdapter<AppItem>(this, 0, apps) {
+                    override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                        val item = getItem(position)!!
+                        val row = (convertView as? LinearLayout) ?: LinearLayout(context).apply {
+                            orientation = LinearLayout.HORIZONTAL
+                            gravity = Gravity.CENTER_VERTICAL
+                            setPadding(dp(22), dp(10), dp(22), dp(10))
+                            addView(ImageView(context).apply {
+                                layoutParams = LinearLayout.LayoutParams(dp(32), dp(32)).apply { marginEnd = dp(16) }
+                            })
+                            addView(TextView(context).apply {
+                                textSize = 16f
+                                setTextColor(getColor(R.color.text))
+                            })
+                        }
+                        (row.getChildAt(0) as ImageView).setImageDrawable(item.icon)
+                        (row.getChildAt(1) as TextView).text = item.label
+                        return row
+                    }
+                }
+                AlertDialog.Builder(this)
+                    .setTitle("Which app?")
+                    .setAdapter(adapter) { _, which -> chooseAppList(apps[which]) }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+        }.start()
+    }
+
+    private fun chooseAppList(app: AppItem) {
+        AlertDialog.Builder(this)
+            .setTitle("Block ${app.label}")
+            .setMessage(
+                "Always: blocked around the clock, protected by Alpha mode.\n\n" +
+                    "On schedule: blocked at the scheduled times, can always be changed."
+            )
+            .setPositiveButton("Always") { _, _ -> addApp(app, true) }
+            .setNeutralButton("On schedule") { _, _ -> addApp(app, false) }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun addApp(app: AppItem, always: Boolean) {
+        addTo(Entry(app.pkg, true), always)
+        toast("${app.label} " + if (always) "blocked always" else "blocked on schedule")
+        refresh()
+    }
+
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
 
-    /** Checks in the background whether the sites on the list still exist. */
+    /** Checks in the background whether the sites on both lists still exist. */
     private fun checkExistence() {
         if (checkingSites) return
-        val sites = BlockConfig.getSites(this)
+        val sites = (BlockConfig.getSites(this, true) + BlockConfig.getSites(this, false)).distinct()
         if (sites.isEmpty()) return
         checkingSites = true
         Thread {
@@ -568,41 +806,6 @@ class MainActivity : Activity() {
                 refresh()
             }
         }.start()
-    }
-
-    private fun removeSite(site: String) {
-        if (isLocked()) {
-            // In Alpha mode only sites that don't exist can be removed; check again first
-            if (existence[site] != SiteChecker.Exists.NO) { denied(); return }
-            Thread {
-                val dead = SiteChecker.exists(listOf(site))[site] == SiteChecker.Exists.NO
-                runOnUiThread {
-                    if (isFinishing || isDestroyed) return@runOnUiThread
-                    if (!dead) {
-                        existence.remove(site); refresh(); denied()
-                        return@runOnUiThread
-                    }
-                    confirmRemove(site, "\"$site\" doesn't exist, so blocking it has no effect.\n\nRemove it from the block list?")
-                }
-            }.start()
-            return
-        }
-        confirmRemove(
-            site,
-            if (existence[site] == SiteChecker.Exists.NO) "\"$site\" doesn't exist. Remove it from the block list?"
-            else "Remove \"$site\" from the block list?"
-        )
-    }
-
-    private fun confirmRemove(site: String, message: String) {
-        AlertDialog.Builder(this)
-            .setMessage(message)
-            .setPositiveButton("Remove") { _, _ ->
-                BlockConfig.setSites(this, BlockConfig.getSites(this).filter { it != site })
-                refresh()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
     }
 
     // ---------- Alpha mode ----------
@@ -654,8 +857,9 @@ class MainActivity : Activity() {
             .setTitle(R.string.strict_header)
             .setMessage(
                 "Alpha mode until ${dateFmt.format(Date(end))}\n(${remaining(end)})\n\n" +
-                    "Until then you can't remove sites, change the schedule, turn blocking off, " +
-                    "or turn off or uninstall WebBlock in the settings. This cannot be undone."
+                    "Until then you can't remove or move anything on the Always list, turn blocking off, " +
+                    "or turn off or uninstall WebBlock in the settings. The On schedule list and the " +
+                    "schedule stay changeable. This cannot be undone."
             )
             .setPositiveButton("Start") { _, _ ->
                 BlockConfig.setEnabled(this, true)

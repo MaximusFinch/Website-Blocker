@@ -22,6 +22,7 @@
         android:layout_marginTop="32dp"
         android:fontFamily="sans-serif-medium"
         android:gravity="center"
+        android:id="@+id/blocked_title"
         android:text="@string/blocked_title"
         android:textColor="@color/text"
         android:textSize="26sp" />

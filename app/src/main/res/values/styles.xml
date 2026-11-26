@@ -67,6 +67,12 @@
         <item name="android:stateListAnimator">@null</item>
     </style>
 
+    <!-- Dark button next to the orange one -->
+    <style name="SecondaryButton" parent="PrimaryButton">
+        <item name="android:background">@drawable/bg_tile</item>
+        <item name="android:textColor">@color/accent2</item>
+    </style>
+
     <style name="TimeTile">
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">wrap_content</item>

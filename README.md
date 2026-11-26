@@ -8,6 +8,8 @@ Android app for blocking websites.
 - Add several sites at once
 - Checks that a site exists and suggests a fix for typos
 - Block list protected by fingerprint or PIN
+- Two lists: "Always" (blocked 24/7, protected by Alpha mode) and "On schedule" (follows the schedule, always changeable)
+- Block apps too: pick installed apps and put them on either list
 - Schedule with times and days of the week
 - Alpha mode: locks your settings until a chosen date and time; WebBlock can't be turned off or uninstalled meanwhile, and changing the clock doesn't end it early
 - Green dot = site exists, red dot = site not found (can be removed even in Alpha mode)

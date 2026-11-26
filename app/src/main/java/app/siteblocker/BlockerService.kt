@@ -69,8 +69,10 @@ class BlockerService : AccessibilityService() {
         val pkg = event?.packageName?.toString() ?: return
         if (pkg == packageName) return
 
+        if (guardSettings(pkg)) return
+        if (blockApp(pkg)) return
+
         if (pkg !in urlBarIds) {
-            if (guardSettings(pkg)) return
             // Another app came to the front (e.g. home screen) -> remove the overlay
             if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
                 pkg != "com.android.systemui" && !pkg.contains("inputmethod") && !pkg.contains("keyboard")
@@ -79,8 +81,7 @@ class BlockerService : AccessibilityService() {
         }
 
         if (sticky) return
-        if (!BlockConfig.isActiveNow(this)) { hideOverlay(); return }
-        val sites = BlockConfig.getSites(this)
+        val sites = BlockConfig.activeSites(this)
         if (sites.isEmpty()) { hideOverlay(); return }
 
         val root = rootInActiveWindow ?: return
@@ -96,6 +97,38 @@ class BlockerService : AccessibilityService() {
             sticky = true
             blockedPkg = pkg
         }
+    }
+
+    // ---------- Blocking apps ----------
+
+    /** App whose block screen is showing right now. */
+    private var blockedApp: String? = null
+
+    /**
+     * Covers a blocked app with the block screen as soon as it is in front.
+     * Returns true when the event belongs to a blocked app.
+     */
+    private fun blockApp(pkg: String): Boolean {
+        if (pkg !in BlockConfig.activeApps(this)) return false
+        if (overlay != null && blockedApp == pkg) return true
+        // Only when the app's own window is in front (not e.g. a toast it shows)
+        val root = rootInActiveWindow ?: return false
+        if (root.packageName?.toString() != pkg) return false
+        if (!BlockConfig.canBlockApp(this, pkg)) return false
+
+        val name = try {
+            packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
+        } catch (_: Exception) { pkg }
+        val list = if (pkg in BlockConfig.getApps(this, true)) "Always list" else "On schedule list"
+        val view = overlay ?: createOverlay() ?: return false
+        view.findViewById<TextView>(R.id.blocked_title).setText(R.string.blocked_app_title)
+        view.findViewById<TextView>(R.id.blocked_url).text = name
+        view.findViewById<TextView>(R.id.blocked_rule).text = getString(R.string.rule_label, list)
+        setClosingUi(false)
+        sticky = true
+        blockedPkg = null   // "Go to home screen" just leaves, there is no tab to close
+        blockedApp = pkg
+        return true
     }
 
     // ---------- Alpha mode protection ----------
@@ -427,6 +460,7 @@ class BlockerService : AccessibilityService() {
 
     private fun showOverlay(url: String, rule: String) {
         val view = overlay ?: createOverlay() ?: return
+        view.findViewById<TextView>(R.id.blocked_title).setText(R.string.blocked_title)
         view.findViewById<TextView>(R.id.blocked_url).text = BlockConfig.normalize(url)
         view.findViewById<TextView>(R.id.blocked_rule).text = getString(R.string.rule_label, rule)
     }
@@ -455,6 +489,7 @@ class BlockerService : AccessibilityService() {
 
     private fun hideOverlay() {
         sticky = false
+        blockedApp = null
         closeRun++   // stops any closing steps that are still waiting
         val view = overlay ?: return
         overlay = null

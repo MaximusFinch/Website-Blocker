@@ -1,6 +1,7 @@
 package app.siteblocker
 
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.os.SystemClock
 import android.provider.Settings
@@ -13,10 +14,76 @@ object BlockConfig {
     private fun prefs(ctx: Context): SharedPreferences =
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    // ---- Block list ----
-    fun getSites(ctx: Context): List<String> =
-        (prefs(ctx).getString("sites", "") ?: "")
-            .split("\n").map { it.trim() }.filter { isWebsite(it) }
+    // ---- Block lists ----
+    //
+    // Two lists, each with websites and apps:
+    //  - "Always":      blocked around the clock, protected by Alpha mode
+    //  - "On schedule": blocked only at the scheduled times, can always be changed
+    // The Always websites keep the key "sites" used by older versions.
+
+    private fun key(kind: String, always: Boolean) = when (kind) {
+        "sites" -> if (always) "sites" else "flex_sites"
+        else -> if (always) "apps" else "flex_apps"
+    }
+
+    private fun readList(ctx: Context, key: String): List<String> {
+        migrate(ctx)
+        return (prefs(ctx).getString(key, "") ?: "").split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+    }
+
+    fun getSites(ctx: Context, always: Boolean = true): List<String> =
+        readList(ctx, key("sites", always)).filter { isWebsite(it) }
+
+    fun setSites(ctx: Context, sites: List<String>, always: Boolean = true) =
+        prefs(ctx).edit().putString(key("sites", always), sites.joinToString("\n")).apply()
+
+    /** Blocked apps (package names). */
+    fun getApps(ctx: Context, always: Boolean = true): List<String> = readList(ctx, key("apps", always))
+
+    fun setApps(ctx: Context, apps: List<String>, always: Boolean = true) =
+        prefs(ctx).edit().putString(key("apps", always), apps.joinToString("\n")).apply()
+
+    /**
+     * Apps that can never be blocked, so you can't lock yourself out:
+     * WebBlock itself, phone, settings, system UI and the home screen.
+     */
+    fun canBlockApp(ctx: Context, pkg: String): Boolean {
+        if (pkg == ctx.packageName || pkg == "com.android.systemui" || pkg == "com.android.phone") return false
+        if (listOf("settings", "dialer", "packageinstaller", "permissioncontroller", "emergency", "inputmethod", "keyboard")
+                .any { pkg.contains(it) }
+        ) return false
+        val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        return ctx.packageManager.queryIntentActivities(home, 0).none { it.activityInfo?.packageName == pkg }
+    }
+
+    fun hasEntries(ctx: Context) = listOf(true, false).any { getSites(ctx, it).isNotEmpty() || getApps(ctx, it).isNotEmpty() }
+
+    /** Websites to block right now (Always list plus, inside the schedule, the On schedule list). */
+    fun activeSites(ctx: Context): List<String> {
+        if (!isEnabled(ctx)) return emptyList()
+        return if (isActiveNow(ctx)) getSites(ctx, true) + getSites(ctx, false) else getSites(ctx, true)
+    }
+
+    /** Apps to block right now. */
+    fun activeApps(ctx: Context): Set<String> {
+        if (!isEnabled(ctx)) return emptySet()
+        return (if (isActiveNow(ctx)) getApps(ctx, true) + getApps(ctx, false) else getApps(ctx, true)).toSet()
+    }
+
+    /**
+     * Version 1.21 split the list in two. Before, all sites followed the schedule:
+     * with a schedule turned on (and no Alpha mode running) they move to the
+     * On schedule list so nothing changes; otherwise they stay on the Always list.
+     */
+    private fun migrate(ctx: Context) {
+        val p = prefs(ctx)
+        if (p.getBoolean("lists_v2", false)) return
+        val e = p.edit().putBoolean("lists_v2", true)
+        if (p.getBoolean("schedule", false) && p.getLong("strict_until", 0L) <= System.currentTimeMillis()) {
+            e.putString("flex_sites", p.getString("sites", "")).putString("sites", "")
+        }
+        e.commit()
+    }
 
     /** Only real websites (with a dot in the domain) can be blocked; keywords are not supported. */
     fun isWebsite(entry: String): Boolean {
@@ -109,7 +176,7 @@ object BlockConfig {
     fun getDays(ctx: Context) = prefs(ctx).getInt("days", 0b0111110)
     fun setDays(ctx: Context, v: Int) = prefs(ctx).edit().putInt("days", v).apply()
 
-    /** Is blocking active right now? */
+    /** Is the On schedule list active right now? (No schedule set = always.) */
     fun isActiveNow(ctx: Context): Boolean {
         if (!isEnabled(ctx)) return false
         if (!isScheduleEnabled(ctx)) return true

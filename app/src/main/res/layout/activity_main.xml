@@ -162,18 +162,43 @@
                 android:textColorHint="@color/text_hint"
                 android:textSize="15sp" />
 
-            <Button
-                android:id="@+id/btn_add"
-                style="@style/PrimaryButton"
-                android:layout_marginTop="10dp"
-                android:text="@string/add" />
-
-            <!-- Collapsible list -->
+            <!-- Which list the entered sites go to -->
             <LinearLayout
-                android:id="@+id/sites_toggle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="10dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btn_add_always"
+                    style="@style/PrimaryButton"
+                    android:layout_width="0dp"
+                    android:layout_marginTop="0dp"
+                    android:layout_weight="1"
+                    android:text="@string/add_always" />
+
+                <Button
+                    android:id="@+id/btn_add_flex"
+                    style="@style/SecondaryButton"
+                    android:layout_width="0dp"
+                    android:layout_marginStart="8dp"
+                    android:layout_marginTop="0dp"
+                    android:layout_weight="1"
+                    android:text="@string/add_flex" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btn_add_app"
+                style="@style/SecondaryButton"
+                android:layout_marginTop="8dp"
+                android:text="@string/add_app" />
+
+            <!-- Always list (collapsible) -->
+            <LinearLayout
+                android:id="@+id/always_toggle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
                 android:background="@drawable/bg_tile"
                 android:clickable="true"
                 android:focusable="true"
@@ -183,7 +208,7 @@
                 android:paddingHorizontal="16dp">
 
                 <TextView
-                    android:id="@+id/sites_toggle_text"
+                    android:id="@+id/always_toggle_text"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
@@ -192,7 +217,7 @@
                     android:textSize="15sp" />
 
                 <TextView
-                    android:id="@+id/sites_chevron"
+                    android:id="@+id/always_chevron"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="▾"
@@ -201,14 +226,53 @@
             </LinearLayout>
 
             <LinearLayout
-                android:id="@+id/site_list"
+                android:id="@+id/always_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone" />
+
+            <!-- On schedule list (collapsible) -->
+            <LinearLayout
+                android:id="@+id/flex_toggle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_tile"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:minHeight="50dp"
+                android:orientation="horizontal"
+                android:paddingHorizontal="16dp">
+
+                <TextView
+                    android:id="@+id/flex_toggle_text"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="sans-serif-medium"
+                    android:textColor="@color/text"
+                    android:textSize="15sp" />
+
+                <TextView
+                    android:id="@+id/flex_chevron"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="▾"
+                    android:textColor="@color/text_dim"
+                    android:textSize="18sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/flex_list"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:visibility="gone" />
         </LinearLayout>
 
-        <!-- Schedule (dimmed and read-only in Alpha mode) -->
+        <!-- Schedule: only for the On schedule list, can always be changed -->
         <LinearLayout
             android:id="@+id/card_schedule"
             style="@style/Card">

@@ -3,6 +3,8 @@ WebBlock blocks websites on your Android phone – in Chrome, Firefox, Samsung I
 ### Features
 - Block whole sites or single sections (reddit.com/r/all)
 - Closes the browser tab of a blocked site
+- Two lists: "Always" (blocked 24/7, protected by Alpha mode) and "On schedule" (follows the schedule, always changeable)
+- Block apps too: pick installed apps and put them on either list
 - Schedule with times and days of the week
 - Alpha mode: locks your settings until a chosen date and time; WebBlock can't be turned off or uninstalled meanwhile, and changing the clock doesn't end it early
 - Green dot = site exists, red dot = site not found (can be removed even in Alpha mode)
