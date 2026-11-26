@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.net.VpnService
+import app.siteblocker.adblock.AdBlockService
 
 /** Starts the ad blocker again after a restart or an app update, if it was on. */
 class BootReceiver : BroadcastReceiver() {

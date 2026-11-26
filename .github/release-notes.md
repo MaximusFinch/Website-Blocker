@@ -7,6 +7,7 @@ WebBlock blocks distracting websites and apps on your Android phone – in Chrom
 - Block apps too: pick installed apps and put them on either list
 - Ad blocker for all apps (optional): filters ad and tracker domains with the StevenBlack list; turns off with a notification when another VPN like NordVPN starts, and reminds you once that VPN is off again
 - Schedule with times and days of the week
+- Two pages (Blocker / Ad blocker) with a tab bar, big status ring and charts: blocked today, this week, in total, per day and the most blocked addresses
 - Alpha mode: locks your settings until a chosen date and time; WebBlock can't be turned off or uninstalled meanwhile, and changing the clock doesn't end it early
 - Green dot = site exists, red dot = site not found (can be removed even in Alpha mode)
 - Block list protected by fingerprint or PIN

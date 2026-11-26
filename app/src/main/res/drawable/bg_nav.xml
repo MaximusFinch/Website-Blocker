@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bottom tab bar: dark with a thin line on top -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item><shape><solid android:color="#333333" /></shape></item>
+    <item android:top="1dp"><shape><solid android:color="#141414" /></shape></item>
+</layer-list>

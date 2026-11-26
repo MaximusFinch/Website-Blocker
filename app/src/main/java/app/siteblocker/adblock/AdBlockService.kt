@@ -1,4 +1,4 @@
-package app.siteblocker
+package app.siteblocker.adblock
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -20,7 +20,9 @@ import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.SocketTimeoutException
-import java.util.Calendar
+import app.siteblocker.MainActivity
+import app.siteblocker.R
+import app.siteblocker.core.Stats
 
 /**
  * Ad blocker: a local "VPN" that only receives DNS lookups.
@@ -60,6 +62,11 @@ class AdBlockService : VpnService() {
 
         @Volatile
         var running = false
+            private set
+
+        /** When the ad blocker was started (0 = not running). */
+        @Volatile
+        var startedAt = 0L
             private set
 
         private fun prefs(ctx: Context) = ctx.getSharedPreferences("config", Context.MODE_PRIVATE)
@@ -115,23 +122,13 @@ class AdBlockService : VpnService() {
             ctx.startService(Intent(ctx, AdBlockService::class.java).setAction(ACTION_STOP))
         }
 
-        private fun today() = Calendar.getInstance().let { it.get(Calendar.YEAR) * 1000 + it.get(Calendar.DAY_OF_YEAR) }
-
         /** Ads and trackers blocked today. */
-        fun blockedToday(ctx: Context): Int {
-            val p = prefs(ctx)
-            return if (p.getInt("adblock_day", 0) == today()) p.getInt("adblock_count", 0) else 0
-        }
+        fun blockedToday(ctx: Context) = Stats.today(ctx, Stats.ADS)
     }
 
     private var tun: ParcelFileDescriptor? = null
     private var output: FileOutputStream? = null
     @Volatile private var stopping = false
-
-    // Counter of blocked lookups, saved every few blocks
-    private var count = 0
-    private var countDay = 0
-    private var unsaved = 0
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP || !isEnabled(this)) {
@@ -174,8 +171,7 @@ class AdBlockService : VpnService() {
         output = FileOutputStream(fd.fileDescriptor)
         stopping = false
         running = true
-        countDay = today()
-        count = blockedToday(this)
+        startedAt = System.currentTimeMillis()
         watchNetwork()
 
         Thread({
@@ -212,10 +208,11 @@ class AdBlockService : VpnService() {
         val dns = pkt.copyOfRange(ihl + 8, pkt.size)
         val q = Dns.question(dns) ?: return
 
+        Stats.add(this, Stats.LOOKUPS)
         // 1. Ad or tracker: answer "nowhere" right away
         if (AdBlockList.isBlocked(q.name)) {
             reply(pkt, ihl, Dns.blocked(dns, q))
-            countBlocked()
+            Stats.add(this, Stats.ADS, domain = q.name)
             return
         }
         // 2. Asked recently: answer from the cache
@@ -416,21 +413,10 @@ class AdBlockService : VpnService() {
         try { synchronized(o) { o.write(out) } } catch (_: IOException) {}
     }
 
-    private fun countBlocked() {
-        val day = today()
-        if (day != countDay) { countDay = day; count = 0 }
-        count++
-        if (++unsaved >= 20) saveCount()
-    }
-
-    private fun saveCount() {
-        unsaved = 0
-        prefs(this).edit().putInt("adblock_day", countDay).putInt("adblock_count", count).apply()
-    }
-
     private fun shutdown() {
         stopping = true
         running = false
+        startedAt = 0L
         netCallback?.let { cb ->
             try { getSystemService(ConnectivityManager::class.java)?.unregisterNetworkCallback(cb) } catch (_: Exception) {}
         }
@@ -441,7 +427,7 @@ class AdBlockService : VpnService() {
         resetSocket()
         synchronized(pending) { pending.clear() }
         synchronized(cache) { cache.clear() }
-        if (countDay != 0) saveCount()
+        Stats.flush(this)
     }
 
     /** Another VPN app was started (or the VPN was turned off in the settings). */

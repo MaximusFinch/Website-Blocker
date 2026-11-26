@@ -1,4 +1,4 @@
-package app.siteblocker
+package app.siteblocker.adblock
 
 import android.content.Context
 import java.io.BufferedInputStream

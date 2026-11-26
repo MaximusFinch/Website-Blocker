@@ -15,6 +15,17 @@ Android app that blocks distracting websites and apps – and ads and trackers i
 - Alpha mode: locks your settings until a chosen date and time; WebBlock can't be turned off or uninstalled meanwhile, and changing the clock doesn't end it early
 - Green dot = site exists, red dot = site not found (can be removed even in Alpha mode)
 - Runs in the background, also after a restart
+- Two pages with a tab bar (swipe to switch): **Blocker** and **Ad blocker**, each with a big
+  status ring and charts of what was blocked
+
+## Statistics
+
+Counted on your phone only, kept for 60 days:
+
+- Blocker page: block screens shown today and per day for the last 7 days (sites and apps)
+- Ad blocker page: ads & trackers blocked today, in the last 7 days and in total, the share of
+  all lookups that were blocked, a chart per day (7 or 30 days), how long the ad blocker has been
+  running, and the most blocked addresses today
 
 ## Ad blocker
 
@@ -32,6 +43,7 @@ actual traffic never goes through it, and nothing is sent to any other server.
 - If "Private DNS" in the Android settings is set to a specific provider, lookups bypass the ad blocker.
 - Safety net: important sites (Google, YouTube, WhatsApp, GitHub, Android's connection check, …) are never
   blocked, and a downloaded list that would block them is rejected – the old list stays active.
+- The numbers on its page never leave the phone.
 - Not affected by Alpha mode – it can always be switched on and off.
 - Fast: blocked lookups are answered instantly, other answers are cached for as long as the DNS
   server allows, and a second DNS server is asked if the first one doesn't answer within 1 s.

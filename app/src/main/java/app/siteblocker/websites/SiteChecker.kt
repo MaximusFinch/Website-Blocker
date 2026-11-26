@@ -1,4 +1,4 @@
-package app.siteblocker
+package app.siteblocker.websites
 
 import java.net.InetAddress
 

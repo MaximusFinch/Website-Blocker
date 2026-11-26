@@ -1,599 +1,582 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/scroll"
+<!-- Two pages (Blocker, Ad blocker) above a bottom tab bar. Swipe left / right to switch. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg"
     android:fitsSystemWindows="true"
-    android:overScrollMode="never">
+    android:orientation="vertical">
 
-    <LinearLayout
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:animateLayoutChanges="true"
-        android:orientation="vertical"
-        android:paddingHorizontal="18dp"
-        android:paddingTop="12dp"
-        android:paddingBottom="28dp">
+        android:layout_height="0dp"
+        android:layout_weight="1">
 
-        <!-- Header: name and state, numbers, status pills -->
-        <LinearLayout
+        <!-- ================= Page 1: Website & app blocker ================= -->
+        <ScrollView
+            android:id="@+id/page_blocker"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/bg_header"
-            android:elevation="6dp"
-            android:orientation="vertical"
-            android:padding="20dp">
+            android:layout_height="match_parent"
+            android:overScrollMode="never">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:animateLayoutChanges="true"
+                android:orientation="vertical"
+                android:paddingHorizontal="18dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="28dp">
 
-                <ImageView
-                    android:id="@+id/header_icon"
-                    android:layout_width="50dp"
-                    android:layout_height="50dp"
-                    android:background="@drawable/bg_icon_circle"
-                    android:contentDescription="@null"
-                    android:padding="12dp"
-                    android:src="@drawable/ic_shield" />
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="14dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
+                <!-- Top bar: name and Alpha mode -->
+                <LinearLayout style="@style/TopBar">
 
                     <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="sans-serif-medium"
-                        android:text="@string/app_name"
-                        android:textColor="#FFFFFF"
-                        android:textSize="24sp" />
+                        style="@style/PageTitle"
+                        android:text="@string/app_name" />
+
+                    <TextView
+                        android:id="@+id/alpha_status"
+                        style="@style/TopPill" />
+                </LinearLayout>
+
+                <!-- Hero: big status ring, state, one big button, numbers -->
+                <LinearLayout
+                    android:id="@+id/hero_blocker"
+                    style="@style/Hero">
+
+                    <app.siteblocker.ui.RingView
+                        android:id="@+id/ring_blocker"
+                        android:layout_width="170dp"
+                        android:layout_height="170dp" />
+
+                    <TextView
+                        android:id="@+id/status"
+                        style="@style/HeroTitle" />
 
                     <TextView
                         android:id="@+id/header_sub"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="1dp"
-                        android:alpha="0.85"
-                        android:textColor="#FFFFFF"
-                        android:textSize="13sp" />
+                        style="@style/HeroSub" />
+
+                    <Button
+                        android:id="@+id/btn_protect"
+                        style="@style/PrimaryButton"
+                        android:layout_marginTop="18dp" />
+
+                    <LinearLayout style="@style/StatRow">
+
+                        <LinearLayout style="@style/StatTile">
+                            <TextView android:id="@+id/stat_sites" style="@style/StatValue" />
+                            <TextView style="@style/StatLabel" android:text="@string/stat_sites" />
+                        </LinearLayout>
+
+                        <LinearLayout style="@style/StatTile" android:layout_marginStart="8dp">
+                            <TextView android:id="@+id/stat_apps" style="@style/StatValue" />
+                            <TextView style="@style/StatLabel" android:text="@string/stat_apps" />
+                        </LinearLayout>
+
+                        <LinearLayout style="@style/StatTile" android:layout_marginStart="8dp">
+                            <TextView android:id="@+id/stat_blocked" style="@style/StatValue" />
+                            <TextView style="@style/StatLabel" android:text="@string/stat_blocked" />
+                        </LinearLayout>
+                    </LinearLayout>
                 </LinearLayout>
-            </LinearLayout>
 
-            <!-- What is blocked: sites, apps, ads blocked today -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="18dp"
-                android:orientation="horizontal">
+                <!-- Notice: accessibility off -->
+                <LinearLayout
+                    android:id="@+id/service_card"
+                    style="@style/Card">
 
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:background="@drawable/bg_stat"
-                android:orientation="vertical"
-                android:paddingHorizontal="12dp"
-                android:paddingVertical="10dp">
+                    <TextView
+                        style="@style/CardTitle"
+                        android:text="@string/service_off_title" />
+
+                    <TextView
+                        style="@style/CardDesc"
+                        android:text="@string/service_off_desc" />
+
+                    <TextView
+                        style="@style/CardDesc"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/help" />
+
+                    <Button
+                        android:id="@+id/btn_service"
+                        style="@style/PrimaryButton"
+                        android:text="@string/enable_service" />
+                </LinearLayout>
+
+                <!-- Chart: block screens of the last 7 days -->
+                <LinearLayout style="@style/Card">
+
+                    <TextView
+                        style="@style/CardTitle"
+                        android:text="@string/chart_blocks" />
+
+                    <TextView
+                        android:id="@+id/chart_blocks_sub"
+                        style="@style/CardDesc" />
+
+                    <app.siteblocker.ui.BarChartView
+                        android:id="@+id/chart_blocks"
+                        android:layout_width="match_parent"
+                        android:layout_height="150dp"
+                        android:layout_marginTop="14dp" />
+                </LinearLayout>
+
+                <!-- Block list -->
+                <LinearLayout style="@style/Card">
+
+                    <TextView
+                        style="@style/CardTitle"
+                        android:text="@string/sites_header" />
+
+                    <TextView
+                        style="@style/CardDesc"
+                        android:text="@string/sites_desc" />
+
+                    <EditText
+                        android:id="@+id/input_site"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:background="@drawable/bg_input"
+                        android:gravity="top|start"
+                        android:hint="@string/sites_hint"
+                        android:inputType="textUri|textMultiLine"
+                        android:maxLines="8"
+                        android:minLines="2"
+                        android:padding="14dp"
+                        android:textColor="@color/text"
+                        android:textColorHint="@color/text_hint"
+                        android:textSize="15sp" />
+
+                    <!-- Which list the entered sites go to -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/btn_add_always"
+                            style="@style/PrimaryButton"
+                            android:layout_width="0dp"
+                            android:layout_marginTop="0dp"
+                            android:layout_weight="1"
+                            android:text="@string/add_always" />
+
+                        <Button
+                            android:id="@+id/btn_add_flex"
+                            style="@style/SecondaryButton"
+                            android:layout_width="0dp"
+                            android:layout_marginStart="8dp"
+                            android:layout_marginTop="0dp"
+                            android:layout_weight="1"
+                            android:text="@string/add_flex" />
+                    </LinearLayout>
+
+                    <Button
+                        android:id="@+id/btn_add_app"
+                        style="@style/SecondaryButton"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/add_app" />
+
+                    <TextView
+                        style="@style/TileLabel"
+                        android:layout_width="match_parent"
+                        android:layout_marginTop="22dp"
+                        android:layout_marginBottom="8dp"
+                        android:layout_weight="0"
+                        android:text="@string/lists_label" />
+
+                    <!-- Always list (collapsible) -->
+                    <LinearLayout
+                        android:id="@+id/always_toggle"
+                        style="@style/ListTile">
+
+                        <View
+                            android:layout_width="4dp"
+                            android:layout_height="34dp"
+                            android:background="@drawable/bg_bar_always" />
+
+                        <LinearLayout style="@style/ListTileText">
+
+                            <TextView
+                                android:id="@+id/always_toggle_text"
+                                style="@style/ListTileTitle" />
+
+                            <TextView
+                                android:id="@+id/always_sub"
+                                style="@style/ListTileSub" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/always_chevron"
+                            style="@style/ListTileChevron" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/always_list"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone" />
+
+                    <!-- On schedule list (collapsible) -->
+                    <LinearLayout
+                        android:id="@+id/flex_toggle"
+                        style="@style/ListTile"
+                        android:layout_marginTop="10dp">
+
+                        <View
+                            android:layout_width="4dp"
+                            android:layout_height="34dp"
+                            android:background="@drawable/bg_bar_flex" />
+
+                        <LinearLayout style="@style/ListTileText">
+
+                            <TextView
+                                android:id="@+id/flex_toggle_text"
+                                style="@style/ListTileTitle" />
+
+                            <TextView
+                                android:id="@+id/flex_sub"
+                                style="@style/ListTileSub" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/flex_chevron"
+                            style="@style/ListTileChevron" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/flex_list"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone" />
+                </LinearLayout>
+
+                <!-- Schedule: only for the On schedule list, can always be changed -->
+                <LinearLayout
+                    android:id="@+id/card_schedule"
+                    style="@style/Card">
+
+                    <Switch
+                        android:id="@+id/sw_schedule"
+                        style="@style/CardSwitch"
+                        android:text="@string/schedule_enabled" />
+
+                    <TextView
+                        style="@style/CardDesc"
+                        android:text="@string/schedule_desc" />
+
+                    <LinearLayout
+                        android:id="@+id/schedule_box"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:orientation="vertical">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                style="@style/TileLabel"
+                                android:text="@string/from" />
+
+                            <TextView
+                                style="@style/TileLabel"
+                                android:layout_marginStart="10dp"
+                                android:text="@string/to" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                            <Button
+                                android:id="@+id/btn_start"
+                                style="@style/TimeTile" />
+
+                            <Button
+                                android:id="@+id/btn_end"
+                                style="@style/TimeTile"
+                                android:layout_marginStart="10dp" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/days"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:orientation="horizontal" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Alpha mode -->
+                <LinearLayout
+                    android:id="@+id/card_alpha"
+                    style="@style/Card">
+
+                    <TextView
+                        style="@style/CardTitle"
+                        android:text="@string/strict_header" />
+
+                    <TextView
+                        android:id="@+id/strict_status"
+                        style="@style/StatusChip"
+                        android:layout_marginTop="10dp" />
+
+                    <TextView
+                        style="@style/CardDesc"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/strict_desc" />
+
+                    <Button
+                        android:id="@+id/btn_strict"
+                        style="@style/PrimaryButton"
+                        android:text="@string/strict_start" />
+                </LinearLayout>
 
                 <TextView
-                    android:id="@+id/stat_sites"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-medium"
-                    android:maxLines="1"
-                    android:text="0"
-                    android:textColor="#FFFFFF"
-                    android:textSize="20sp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:alpha="0.75"
-                    android:letterSpacing="0.08"
-                    android:maxLines="1"
-                    android:text="@string/stat_sites"
-                    android:textAllCaps="true"
-                    android:textColor="#FFFFFF"
-                    android:textSize="10sp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="8dp"
-                android:background="@drawable/bg_stat"
-                android:orientation="vertical"
-                android:paddingHorizontal="12dp"
-                android:paddingVertical="10dp">
-
-                <TextView
-                    android:id="@+id/stat_apps"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-medium"
-                    android:maxLines="1"
-                    android:text="0"
-                    android:textColor="#FFFFFF"
-                    android:textSize="20sp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:alpha="0.75"
-                    android:letterSpacing="0.08"
-                    android:maxLines="1"
-                    android:text="@string/stat_apps"
-                    android:textAllCaps="true"
-                    android:textColor="#FFFFFF"
-                    android:textSize="10sp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="8dp"
-                android:background="@drawable/bg_stat"
-                android:orientation="vertical"
-                android:paddingHorizontal="12dp"
-                android:paddingVertical="10dp">
-
-                <TextView
-                    android:id="@+id/stat_ads"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-medium"
-                    android:maxLines="1"
-                    android:text="0"
-                    android:textColor="#FFFFFF"
-                    android:textSize="20sp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:alpha="0.75"
-                    android:letterSpacing="0.08"
-                    android:maxLines="1"
-                    android:text="@string/stat_ads"
-                    android:textAllCaps="true"
-                    android:textColor="#FFFFFF"
-                    android:textSize="10sp" />
-            </LinearLayout>
-            </LinearLayout>
-
-            <!-- Status pills: protection (tap to pause) and Alpha mode -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:id="@+id/status"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:ellipsize="end"
+                    android:layout_marginTop="22dp"
                     android:fontFamily="sans-serif-medium"
                     android:gravity="center"
-                    android:maxLines="1"
-                    android:paddingHorizontal="10dp"
-                    android:paddingVertical="10dp"
-                    android:textColor="#FFFFFF"
-                    android:textSize="13sp" />
+                    android:letterSpacing="0.1"
+                    android:text="@string/version_label"
+                    android:textAllCaps="true"
+                    android:textColor="@color/text_hint"
+                    android:textSize="10sp" />
 
-                <!-- Alpha mode status; tap shows what it means -->
                 <TextView
-                    android:id="@+id/alpha_status"
-                    android:layout_width="0dp"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:layout_weight="1"
-                    android:ellipsize="end"
-                    android:fontFamily="sans-serif-medium"
+                    android:layout_marginTop="2dp"
                     android:gravity="center"
-                    android:maxLines="1"
-                    android:paddingHorizontal="10dp"
-                    android:paddingVertical="10dp"
-                    android:textColor="#FFFFFF"
-                    android:textSize="13sp" />
+                    android:text="@string/version"
+                    android:textColor="@color/text_hint"
+                    android:textSize="12sp" />
             </LinearLayout>
-        </LinearLayout>
+        </ScrollView>
 
-        <!-- Notice: accessibility off -->
-        <LinearLayout
-            android:id="@+id/service_card"
-            style="@style/Card">
-
-            <TextView
-                style="@style/CardTitle"
-                android:text="@string/service_off_title" />
-
-            <TextView
-                style="@style/CardDesc"
-                android:text="@string/service_off_desc" />
-
-            <TextView
-                android:id="@+id/help"
-                style="@style/CardDesc"
-                android:layout_marginTop="8dp"
-                android:text="@string/help" />
-
-            <Button
-                android:id="@+id/btn_service"
-                style="@style/PrimaryButton"
-                android:text="@string/enable_service" />
-        </LinearLayout>
-
-        <!-- Notice: blocking turned off. Only shown while off, slides away once turned on -->
-        <LinearLayout
-            android:id="@+id/card_enabled"
-            style="@style/Card"
+        <!-- ================= Page 2: Ad blocker ================= -->
+        <ScrollView
+            android:id="@+id/page_ads"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:overScrollMode="never"
             android:visibility="gone">
 
-            <TextView
-                style="@style/CardTitle"
-                android:text="@string/blocking_off_title" />
-
-            <TextView
-                style="@style/CardDesc"
-                android:text="@string/blocking_off_desc" />
-
-            <Button
-                android:id="@+id/btn_enable"
-                style="@style/PrimaryButton"
-                android:text="@string/turn_on" />
-        </LinearLayout>
-
-        <!-- Block list -->
-        <LinearLayout style="@style/Card">
-
-            <TextView
-                style="@style/CardTitle"
-                android:text="@string/sites_header" />
-
-            <TextView
-                style="@style/CardDesc"
-                android:text="@string/sites_desc" />
-
-            <EditText
-                android:id="@+id/input_site"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:background="@drawable/bg_input"
-                android:gravity="top|start"
-                android:hint="@string/sites_hint"
-                android:inputType="textUri|textMultiLine"
-                android:maxLines="8"
-                android:minLines="2"
-                android:padding="14dp"
-                android:textColor="@color/text"
-                android:textColorHint="@color/text_hint"
-                android:textSize="15sp" />
-
-            <!-- Which list the entered sites go to -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/btn_add_always"
-                    style="@style/PrimaryButton"
-                    android:layout_width="0dp"
-                    android:layout_marginTop="0dp"
-                    android:layout_weight="1"
-                    android:text="@string/add_always" />
-
-                <Button
-                    android:id="@+id/btn_add_flex"
-                    style="@style/SecondaryButton"
-                    android:layout_width="0dp"
-                    android:layout_marginStart="8dp"
-                    android:layout_marginTop="0dp"
-                    android:layout_weight="1"
-                    android:text="@string/add_flex" />
-            </LinearLayout>
-
-            <Button
-                android:id="@+id/btn_add_app"
-                style="@style/SecondaryButton"
-                android:layout_marginTop="8dp"
-                android:text="@string/add_app" />
-
-            <TextView
-                style="@style/TileLabel"
-                android:layout_width="match_parent"
-                android:layout_marginTop="22dp"
-                android:layout_marginBottom="8dp"
-                android:layout_weight="0"
-                android:text="@string/lists_label" />
-
-            <!-- Always list (collapsible) -->
-            <LinearLayout
-                android:id="@+id/always_toggle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="0dp"
-                android:background="@drawable/bg_tile"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center_vertical"
-                android:minHeight="62dp"
-                android:orientation="horizontal"
-                android:paddingStart="14dp"
-                android:paddingEnd="16dp"
-                android:paddingVertical="10dp">
-
-                <View
-                    android:layout_width="4dp"
-                    android:layout_height="34dp"
-                    android:background="@drawable/bg_bar_always" />
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="14dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:id="@+id/always_toggle_text"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="sans-serif-medium"
-                        android:textColor="@color/text"
-                        android:textSize="16sp" />
-
-                    <TextView
-                        android:id="@+id/always_sub"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:textColor="@color/text_dim"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
-                <TextView
-                    android:id="@+id/always_chevron"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:text="▾"
-                    android:textColor="@color/text_dim"
-                    android:textSize="18sp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/always_list"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:animateLayoutChanges="true"
                 android:orientation="vertical"
-                android:visibility="gone" />
+                android:paddingHorizontal="18dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="28dp">
 
-            <!-- On schedule list (collapsible) -->
-            <LinearLayout
-                android:id="@+id/flex_toggle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/bg_tile"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center_vertical"
-                android:minHeight="62dp"
-                android:orientation="horizontal"
-                android:paddingStart="14dp"
-                android:paddingEnd="16dp"
-                android:paddingVertical="10dp">
-
-                <View
-                    android:layout_width="4dp"
-                    android:layout_height="34dp"
-                    android:background="@drawable/bg_bar_flex" />
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="14dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
+                <LinearLayout style="@style/TopBar">
 
                     <TextView
-                        android:id="@+id/flex_toggle_text"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="sans-serif-medium"
-                        android:textColor="@color/text"
-                        android:textSize="16sp" />
-
-                    <TextView
-                        android:id="@+id/flex_sub"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:textColor="@color/text_dim"
-                        android:textSize="12sp" />
+                        style="@style/PageTitle"
+                        android:text="@string/adblock_title" />
                 </LinearLayout>
 
-                <TextView
-                    android:id="@+id/flex_chevron"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:text="▾"
-                    android:textColor="@color/text_dim"
-                    android:textSize="18sp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/flex_list"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone" />
-        </LinearLayout>
-
-        <!-- Schedule: only for the On schedule list, can always be changed -->
-        <LinearLayout
-            android:id="@+id/card_schedule"
-            style="@style/Card">
-
-            <Switch
-                android:id="@+id/sw_schedule"
-                style="@style/CardSwitch"
-                android:text="@string/schedule_enabled" />
-
-            <TextView
-                style="@style/CardDesc"
-                android:text="@string/schedule_desc" />
-
-            <LinearLayout
-                android:id="@+id/schedule_box"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:orientation="vertical">
-
+                <!-- Hero: ring, ads blocked today, state, on/off button, numbers -->
                 <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
+                    android:id="@+id/hero_ads"
+                    style="@style/Hero">
+
+                    <app.siteblocker.ui.RingView
+                        android:id="@+id/ring_ads"
+                        android:layout_width="170dp"
+                        android:layout_height="170dp" />
 
                     <TextView
-                        style="@style/TileLabel"
-                        android:text="@string/from" />
+                        android:id="@+id/ads_today"
+                        style="@style/HeroTitle"
+                        android:textSize="40sp" />
 
                     <TextView
-                        style="@style/TileLabel"
-                        android:layout_marginStart="10dp"
-                        android:text="@string/to" />
-                </LinearLayout>
+                        style="@style/HeroSub"
+                        android:layout_marginTop="0dp"
+                        android:text="@string/ads_today_label" />
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
+                    <TextView
+                        android:id="@+id/adblock_status"
+                        style="@style/StatusChip"
+                        android:layout_gravity="center_horizontal"
+                        android:layout_marginTop="14dp" />
 
                     <Button
-                        android:id="@+id/btn_start"
-                        style="@style/TimeTile" />
+                        android:id="@+id/btn_adblock"
+                        style="@style/PrimaryButton"
+                        android:layout_marginTop="18dp" />
 
-                    <Button
-                        android:id="@+id/btn_end"
-                        style="@style/TimeTile"
-                        android:layout_marginStart="10dp" />
+                    <LinearLayout style="@style/StatRow">
+
+                        <LinearLayout style="@style/StatTile">
+                            <TextView android:id="@+id/ads_week" style="@style/StatValue" />
+                            <TextView style="@style/StatLabel" android:text="@string/stat_week" />
+                        </LinearLayout>
+
+                        <LinearLayout style="@style/StatTile" android:layout_marginStart="8dp">
+                            <TextView android:id="@+id/ads_total" style="@style/StatValue" />
+                            <TextView style="@style/StatLabel" android:text="@string/stat_total" />
+                        </LinearLayout>
+
+                        <LinearLayout style="@style/StatTile" android:layout_marginStart="8dp">
+                            <TextView android:id="@+id/ads_share" style="@style/StatValue" />
+                            <TextView style="@style/StatLabel" android:text="@string/stat_share" />
+                        </LinearLayout>
+                    </LinearLayout>
                 </LinearLayout>
 
-                <LinearLayout
-                    android:id="@+id/days"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:orientation="horizontal" />
+                <!-- Chart: blocked per day, 7 or 30 days -->
+                <LinearLayout style="@style/Card">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            style="@style/CardTitle"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:text="@string/chart_ads" />
+
+                        <TextView
+                            android:id="@+id/chip_7"
+                            style="@style/RangeChip"
+                            android:text="@string/range_7" />
+
+                        <TextView
+                            android:id="@+id/chip_30"
+                            style="@style/RangeChip"
+                            android:layout_marginStart="6dp"
+                            android:text="@string/range_30" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/chart_ads_sub"
+                        style="@style/CardDesc" />
+
+                    <app.siteblocker.ui.BarChartView
+                        android:id="@+id/chart_ads"
+                        android:layout_width="match_parent"
+                        android:layout_height="160dp"
+                        android:layout_marginTop="14dp" />
+                </LinearLayout>
+
+                <!-- Most blocked domains today -->
+                <LinearLayout style="@style/Card">
+
+                    <TextView
+                        style="@style/CardTitle"
+                        android:text="@string/top_title" />
+
+                    <TextView
+                        style="@style/CardDesc"
+                        android:text="@string/top_desc" />
+
+                    <LinearLayout
+                        android:id="@+id/top_list"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:orientation="vertical" />
+                </LinearLayout>
+
+                <!-- How it works, filter list -->
+                <LinearLayout style="@style/Card">
+
+                    <TextView
+                        style="@style/CardTitle"
+                        android:text="@string/filter_title" />
+
+                    <TextView
+                        style="@style/CardDesc"
+                        android:text="@string/adblock_desc" />
+
+                    <TextView
+                        android:id="@+id/adblock_list_info"
+                        style="@style/StatusChip"
+                        android:layout_marginTop="12dp"
+                        android:textColor="@color/text_dim" />
+
+                    <TextView
+                        style="@style/CardDesc"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/adblock_note"
+                        android:textColor="@color/text_hint"
+                        android:textSize="12sp" />
+
+                    <Button
+                        android:id="@+id/btn_adblock_update"
+                        style="@style/SecondaryButton"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/adblock_update" />
+                </LinearLayout>
             </LinearLayout>
-        </LinearLayout>
+        </ScrollView>
+    </FrameLayout>
 
-        <!-- Ad blocker (not protected by Alpha mode) -->
+    <!-- ================= Bottom tab bar ================= -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_nav"
+        android:orientation="horizontal"
+        android:paddingVertical="8dp">
+
         <LinearLayout
-            android:id="@+id/card_adblock"
-            style="@style/Card">
+            android:id="@+id/tab_blocker"
+            style="@style/NavTab">
 
-            <Switch
-                android:id="@+id/sw_adblock"
-                style="@style/CardSwitch"
-                android:text="@string/adblock_title" />
+            <FrameLayout
+                android:id="@+id/tab_blocker_pill"
+                style="@style/NavPill">
 
-            <TextView
-                style="@style/CardDesc"
-                android:text="@string/adblock_desc" />
-
-            <TextView
-                android:id="@+id/adblock_status"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:background="@drawable/bg_chip"
-                android:fontFamily="sans-serif-medium"
-                android:paddingHorizontal="12dp"
-                android:paddingVertical="8dp"
-                android:textSize="14sp" />
+                <ImageView
+                    android:id="@+id/tab_blocker_icon"
+                    style="@style/NavIcon"
+                    android:src="@drawable/ic_shield" />
+            </FrameLayout>
 
             <TextView
-                style="@style/CardDesc"
-                android:layout_marginTop="10dp"
-                android:text="@string/adblock_note"
-                android:textColor="@color/text_hint"
-                android:textSize="12sp" />
-
-            <Button
-                android:id="@+id/btn_adblock_update"
-                style="@style/SecondaryButton"
-                android:layout_marginTop="12dp"
-                android:text="@string/adblock_update" />
+                android:id="@+id/tab_blocker_label"
+                style="@style/NavLabel"
+                android:text="@string/tab_blocker" />
         </LinearLayout>
 
-        <!-- Alpha mode -->
         <LinearLayout
-            android:id="@+id/card_alpha"
-            style="@style/Card">
+            android:id="@+id/tab_ads"
+            style="@style/NavTab">
+
+            <FrameLayout
+                android:id="@+id/tab_ads_pill"
+                style="@style/NavPill">
+
+                <ImageView
+                    android:id="@+id/tab_ads_icon"
+                    style="@style/NavIcon"
+                    android:src="@drawable/ic_ads" />
+            </FrameLayout>
 
             <TextView
-                style="@style/CardTitle"
-                android:text="@string/strict_header" />
-
-            <TextView
-                android:id="@+id/strict_status"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/bg_chip"
-                android:fontFamily="sans-serif-medium"
-                android:paddingHorizontal="12dp"
-                android:paddingVertical="8dp"
-                android:textSize="14sp" />
-
-            <TextView
-                style="@style/CardDesc"
-                android:layout_marginTop="10dp"
-                android:text="@string/strict_desc" />
-
-            <Button
-                android:id="@+id/btn_strict"
-                style="@style/PrimaryButton"
-                android:text="@string/strict_start" />
+                android:id="@+id/tab_ads_label"
+                style="@style/NavLabel"
+                android:text="@string/tab_ads" />
         </LinearLayout>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
-            android:fontFamily="sans-serif-medium"
-            android:gravity="center"
-            android:letterSpacing="0.1"
-            android:text="@string/version_label"
-            android:textAllCaps="true"
-            android:textColor="@color/text_hint"
-            android:textSize="10sp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:gravity="center"
-            android:text="@string/version"
-            android:textColor="@color/text_hint"
-            android:textSize="12sp" />
-
     </LinearLayout>
-</ScrollView>
+</LinearLayout>

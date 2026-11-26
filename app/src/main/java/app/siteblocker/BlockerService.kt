@@ -21,6 +21,9 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
+import app.siteblocker.adblock.AdBlockService
+import app.siteblocker.core.Stats
+import app.siteblocker.websites.BlockConfig
 
 /**
  * Accessibility service: reads the address bar of known browsers and covers
@@ -146,6 +149,7 @@ class BlockerService : AccessibilityService() {
             // Keep the block screen until the button is tapped; the tab is closed then
             sticky = true
             blockedPkg = pkg
+            Stats.add(this, Stats.SITES)
         }
     }
 
@@ -178,6 +182,7 @@ class BlockerService : AccessibilityService() {
         sticky = true
         blockedPkg = null   // "Go to home screen" just leaves, there is no tab to close
         blockedApp = pkg
+        Stats.add(this, Stats.APPS)
         return true
     }
 

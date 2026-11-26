@@ -64,7 +64,7 @@
 
         <!-- Ad blocker: local VPN that only filters DNS lookups. Only Android can bind to it. -->
         <service
-            android:name=".AdBlockService"
+            android:name=".adblock.AdBlockService"
             android:exported="true"
             android:permission="android.permission.BIND_VPN_SERVICE">
             <intent-filter>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Selected tab: soft orange pill behind the icon -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="#33FF7A1A" /><corners android:radius="100dp" />
+</shape>
