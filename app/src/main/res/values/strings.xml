@@ -50,5 +50,5 @@
     <string name="locked_hint">Alpha mode is activated – changes are possible once it ends.</string>
     <string name="help">Android 13 and newer: Settings › Apps › WebBlock › ⋮ › \"Allow restricted settings\", then enable it here.</string>
     <string name="version_label">Version</string>
-    <string name="version">WebBlock 1.21</string>
+    <string name="version">WebBlock 1.22</string>
 </resources>

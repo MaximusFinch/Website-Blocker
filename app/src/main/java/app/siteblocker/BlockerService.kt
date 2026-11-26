@@ -69,7 +69,7 @@ class BlockerService : AccessibilityService() {
         val pkg = event?.packageName?.toString() ?: return
         if (pkg == packageName) return
 
-        if (guardSettings(pkg)) return
+        if (guardSettings(pkg, event.className?.toString())) return
         if (blockApp(pkg)) return
 
         if (pkg !in urlBarIds) {
@@ -148,7 +148,7 @@ class BlockerService : AccessibilityService() {
      * uninstall dialog) is closed right away by going to the home screen.
      * Returns true when it did that.
      */
-    private fun guardSettings(pkg: String): Boolean {
+    private fun guardSettings(pkg: String, className: String?): Boolean {
         if (!isGuardedApp(pkg)) return false
         if (!BlockConfig.isStrictLocked(this)) return false
         val root = rootInActiveWindow ?: return false
@@ -156,6 +156,8 @@ class BlockerService : AccessibilityService() {
         val name = getString(R.string.app_name)
         val hits = root.findAccessibilityNodeInfosByText(name)
         if (hits.isNullOrEmpty()) return false
+        // Package installer: installing an update is fine, only the uninstall dialog is closed
+        if (pkg.contains("packageinstaller") && !isUninstallScreen(root, className)) return false
 
         performGlobalAction(GLOBAL_ACTION_HOME)
         val now = SystemClock.uptimeMillis()
@@ -164,6 +166,23 @@ class BlockerService : AccessibilityService() {
             Toast.makeText(this, R.string.guard_hint, Toast.LENGTH_LONG).show()
         }
         return true
+    }
+
+    /** Words in uninstall dialogs ("Do you want to uninstall this app?", "deinstallieren", …). */
+    private val uninstallWords = listOf("uninstall", "deinstall", "désinstall", "desinstal", "disinstall", "verwijder")
+
+    /** Is the package installer showing the uninstall dialog (not the install / update one)? */
+    private fun isUninstallScreen(root: AccessibilityNodeInfo, className: String?): Boolean {
+        if (className?.contains("uninstall", true) == true) return true
+        val text = StringBuilder()
+        fun collect(n: AccessibilityNodeInfo?, depth: Int) {
+            if (n == null || depth > 12 || text.length > 4000) return
+            n.text?.let { text.append(it).append(' ') }
+            for (i in 0 until n.childCount) collect(n.getChild(i), depth + 1)
+        }
+        collect(root, 0)
+        val t = text.toString().lowercase()
+        return uninstallWords.any { it in t }
     }
 
     // ---------- Closing the tab ----------
